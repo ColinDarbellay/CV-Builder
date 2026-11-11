@@ -6,6 +6,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 const mkid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/-/g, "").slice(0, 20);
 const words = s => (String(s || "").trim().match(/\S+/g) || []).length;
 const E = window.CVEngine;
+const ZOOM_OK = z => [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3].includes(z);
 
 function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 2800); }
 function status(t) { const el = $("#status"); el.textContent = t || ""; el.hidden = !t; }
@@ -80,10 +81,10 @@ const STATUSES = [["draft", "Draft"], ["sent", "Applied"], ["interview", "Interv
 const STATUS_LABEL = Object.fromEntries(STATUSES);
 const ACCENTS = [["#1a8cff", "Blue (template)"], ["#1f8a8a", "Teal"], ["#b0452a", "Brick"], ["#3a3f47", "Graphite"]];
 const S = {
-  tab: "edit", curId: null, filter: "all", openSecs: new Set(["meta", "header"]), newForm: false, more: new Set(),
+  tab: "pdf", zoom: 1, pdfDoc: null, curId: null, filter: "all", openSecs: new Set(["meta", "header"]), newForm: false, more: new Set(),
   claude: false, pdf: null, pdfText: "", pdfBusy: false, pdfDirty: true, pages: 0
 };
-try { const t = localStorage.getItem("cvb-tab"); if (["edit", "ats", "pdf", "apps"].includes(t)) S.tab = t; } catch (_) {}
+try { const t = localStorage.getItem("cvb-tab"); if (["edit", "ats", "pdf", "apps"].includes(t)) S.tab = t; const z = +localStorage.getItem("cvb-zoom"); if (ZOOM_OK(z)) S.zoom = z; } catch (_) {}
 
 const versions = () => Store.list("versions").sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 const cur = () => S.curId ? Store.get("versions", S.curId) : null;
@@ -465,10 +466,14 @@ function fileName(v) {
   const slug = String(v.company || (v.isTemplate ? "" : v.label) || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "").toUpperCase().slice(0, 40);
   return `CV_${last}${slug ? "_" + slug : ""}.pdf`;
 }
+const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
+function zoomLabel() { return S.zoom === 1 ? "Fit" : Math.round(S.zoom * 100) + "%"; }
 function renderPdf() {
   const v = cur(); if (!v) return;
   $("#pane-pdf").innerHTML = `<div class="cols pv">
-    <div class="desk"><div class="ruler"><span id="pvinfo">A4 · 210 × 297 mm</span><span>Rendered from the exported PDF</span></div><div class="sheets" id="sheets"><p class="hint">Generating…</p></div></div>
+    <div class="desk"><div class="ruler"><span id="pvinfo">A4 · 210 × 297 mm</span>
+      <span class="zoom" role="group" aria-label="Zoom"><button class="btn sm" data-act="zout" aria-label="Zoom out">−</button><button class="btn sm" data-act="zfit" id="zlabel" title="Fit to width">${zoomLabel()}</button><button class="btn sm" data-act="zin" aria-label="Zoom in">+</button></span></div>
+      <div class="sheets" id="sheets"><p class="hint">Generating…</p></div></div>
     <div class="pane stick">
       <div class="panel"><h2>Export</h2>
         <label>File name<input type="text" id="fname" value="${esc(v.fileName || fileName(v))}"></label>
@@ -483,6 +488,27 @@ function renderPdf() {
   S.pdfDirty = true; schedulePdf(0);
 }
 function schedulePdf(ms) { if (S.tab !== "pdf") return; clearTimeout(pdfT); pdfT = setTimeout(genPdf, ms == null ? 450 : ms); }
+function setZoom(z) {
+  S.zoom = z; try { localStorage.setItem("cvb-zoom", String(z)); } catch (_) {}
+  const l = $("#zlabel"); if (l) l.textContent = zoomLabel();
+  if (S.pdfDoc) drawPages(S.pdfDoc, pdfRun);
+}
+async function drawPages(pdf, run) {
+  const host = $("#sheets"); if (!host) return;
+  const fit = Math.min(host.parentElement.clientWidth - 32 || 800, 820), w = Math.round(fit * S.zoom);
+  const dpr = Math.min(2, window.devicePixelRatio || 1), sharp = Math.min(dpr, 6000 / w); // cap canvas size at high zoom
+  host.classList.toggle("wide", w > fit);
+  const canvases = [];
+  for (let n = 1; n <= pdf.numPages; n++) {
+    const page = await pdf.getPage(n), vp0 = page.getViewport({ scale: 1 }), scale = w / vp0.width, vp = page.getViewport({ scale: scale * sharp });
+    const c = document.createElement("canvas"); c.width = Math.round(vp.width); c.height = Math.round(vp.height); c.style.width = w + "px"; c.style.height = Math.round(vp0.height * scale) + "px";
+    c.setAttribute("role", "img"); c.setAttribute("aria-label", `CV page ${n}`);
+    await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+    if (run !== pdfRun) return;
+    canvases.push(c);
+  }
+  host.replaceChildren(...canvases);
+}
 async function genPdf() {
   const v = cur(), host = $("#sheets"); if (!v || !host) return;
   const run = ++pdfRun;
@@ -495,21 +521,16 @@ async function genPdf() {
     pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
     const pdf = await pdfjsLib.getDocument({ data: out.bytes.slice() }).promise;
     if (run !== pdfRun) return;
-    const w = Math.min(host.clientWidth || 800, 820), dpr = Math.min(2, window.devicePixelRatio || 1);
-    const canvases = [];
+    S.pdfDoc = pdf;
+    await drawPages(pdf, run);
+    if (run !== pdfRun) return;
     let text = "";
     for (let n = 1; n <= pdf.numPages; n++) {
-      const page = await pdf.getPage(n), vp0 = page.getViewport({ scale: 1 }), scale = w / vp0.width, vp = page.getViewport({ scale: scale * dpr });
-      const c = document.createElement("canvas"); c.width = vp.width; c.height = vp.height; c.style.width = w + "px"; c.style.height = (vp0.height * scale) + "px";
-      c.setAttribute("role", "img"); c.setAttribute("aria-label", `Page ${n} du CV`);
-      await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
-      canvases.push(c);
-      const tc = await page.getTextContent(); let lastY = null;
+      const tc = await (await pdf.getPage(n)).getTextContent(); let lastY = null;
       for (const it of tc.items) { if (!("str" in it)) continue; const y = Math.round(it.transform[5]); if (lastY !== null) text += Math.abs(y - lastY) > 2 ? "\n" : (it.str && !/\s$/.test(text) ? " " : ""); text += it.str; lastY = y; }
       text += "\n\n";
-      if (run !== pdfRun) return;
     }
-    host.replaceChildren(...canvases);
+    if (run !== pdfRun) return;
     S.pdfText = text.trim(); renderParse();
   } catch (e) { host.innerHTML = `<p class="hint">Preview failed: ${esc(e.message || e)}. Export still works.</p>`; }
 }
@@ -703,6 +724,8 @@ $("#main").addEventListener("click", async e => {
     if (act === "sskip") { s.state = "skipped"; touch(); renderSuggestions(); return; }
     if (act === "sreset") { s.state = null; touch(); renderSuggestions(); return; }
   }
+  if (act === "zin" || act === "zout") { const i = ZOOMS.indexOf(S.zoom), j = Math.max(0, Math.min(ZOOMS.length - 1, (i < 0 ? 2 : i) + (act === "zin" ? 1 : -1))); setZoom(ZOOMS[j]); return; }
+  if (act === "zfit") { setZoom(1); return; }
   if (act === "export") return exportPdf();
   if (act === "copytxt") return copy(S.pdfText, "Extracted text copied");
   const id = b.closest("[data-id]")?.dataset.id;
@@ -717,7 +740,7 @@ $("#main").addEventListener("click", async e => {
 });
 $("#seedIn").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) importSeed(f); });
 $("#photoIn").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) setPhoto(f); });
-addEventListener("resize", () => { if (S.tab === "pdf") schedulePdf(); });
+addEventListener("resize", () => { if (S.tab === "pdf" && S.pdfDoc) { clearTimeout(pdfT); pdfT = setTimeout(() => drawPages(S.pdfDoc, pdfRun), 200); } });
 addEventListener("beforeunload", e => { if (saveT && $("#save").textContent === "Edited…") { flush(S.curId); e.preventDefault(); } });
 
 /* ---------- boot ---------- */

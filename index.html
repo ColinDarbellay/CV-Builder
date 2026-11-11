@@ -129,10 +129,15 @@ ul.checks li>span{font:600 11.5px var(--f-mono);min-width:3.2ch;text-align:cente
 pre.txt{white-space:pre-wrap;word-break:break-word;background:var(--sunk);border:1px solid var(--line);border-radius:7px;padding:12px;font:12px/1.5 var(--f-mono);margin:0;max-height:52vh;overflow:auto}
 
 /* preview */
-.desk{background:var(--table);border-radius:10px;padding:16px;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:24px 24px;min-width:0}
+.desk{background:var(--table);border-radius:10px;padding:16px;overflow-x:auto;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:24px 24px;min-width:0}
 .sheets{display:flex;flex-direction:column;gap:18px;align-items:center}
-.sheets canvas{background:#fff;box-shadow:var(--shadow);max-width:100%;display:block}
-.ruler{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font:12px var(--f-mono);color:var(--muted);margin-bottom:10px}
+.sheets.wide{align-items:flex-start}
+.zoom{display:flex;gap:4px;align-items:center}
+.zoom .btn{min-width:34px;font-family:var(--f-mono)}
+#zlabel{min-width:58px}
+.sheets canvas{background:#fff;box-shadow:var(--shadow);display:block;flex:none}
+.sheets:not(.wide) canvas{max-width:100%}
+.ruler{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font:12px var(--f-mono);color:var(--muted);margin-bottom:10px;position:sticky;left:0}
 
 /* applications */
 .filters{display:flex;flex-wrap:wrap;gap:6px}
@@ -177,9 +182,9 @@ pre.txt{white-space:pre-wrap;word-break:break-word;background:var(--sunk);border
 </header>
 <div class="gut">
   <nav class="tabs" id="tabs" role="tablist" hidden>
-    <button role="tab" data-tab="edit" aria-selected="true">Edit</button>
+    <button role="tab" data-tab="pdf" aria-selected="true">PDF <b id="tabPages">–</b></button>
+    <button role="tab" data-tab="edit" aria-selected="false">Edit</button>
     <button role="tab" data-tab="ats" aria-selected="false">ATS <b id="tabScore">–</b></button>
-    <button role="tab" data-tab="pdf" aria-selected="false">PDF <b id="tabPages">–</b></button>
     <button role="tab" data-tab="apps" aria-selected="false">Jobs <b id="tabApps">0</b></button>
   </nav>
   <div id="status" class="status" hidden style="max-width:1180px;margin:12px auto 0"></div>
