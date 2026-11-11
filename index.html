@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-version="202611112124">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -37,6 +37,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;background:var(--bar);color:var(--ink);border-bottom:1px solid var(--line);padding-block:10px}
 .bar-in{max-width:1180px;margin:0 auto;display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
 .brand{font:700 15px var(--f-display);letter-spacing:.03em;display:flex;align-items:center;gap:9px;white-space:nowrap}
+.brand small{font:400 11px var(--f-mono);color:var(--muted);letter-spacing:0}
 .brand i{width:12px;height:16px;border:2px solid var(--ink);border-right-width:6px;border-radius:2px;display:inline-block}
 .vpick{display:flex;gap:8px;align-items:center;flex:1 1 240px;min-width:0}
 .vpick select{flex:1;min-width:0;background:var(--bg);color:var(--ink);border:1px solid var(--line-strong);border-radius:7px;padding:7px 10px}
@@ -168,6 +169,7 @@ pre.txt{white-space:pre-wrap;word-break:break-word;background:var(--sunk);border
 .empty{padding:28px 18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px;display:flex;flex-direction:column;gap:12px;align-items:center}
 .status{font-size:13.5px;color:var(--warn);background:var(--warnbg);border-radius:8px;padding:8px 12px}
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:9px 15px;border-radius:8px;font-size:14px;z-index:20;max-width:calc(100% - 32px)}
+.update{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:30;background:var(--panel);border:1px solid var(--accent);border-radius:999px;padding:6px 6px 6px 14px;display:flex;gap:10px;align-items:center;box-shadow:var(--shadow);font-size:14px;max-width:calc(100% - 32px)}
 .photo{display:flex;gap:12px;align-items:center}
 .photo img{width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--sunk)}
 @media (max-width:620px){#whoMail{display:none}.save{display:none}.vpick{order:3;flex-basis:100%}}
@@ -177,7 +179,7 @@ pre.txt{white-space:pre-wrap;word-break:break-word;background:var(--sunk);border
 <body>
 <header class="bar gut">
   <div class="bar-in">
-    <div class="brand"><i aria-hidden="true"></i>CV Builder</div>
+    <div class="brand"><i aria-hidden="true"></i>CV Builder <small id="ver" title="Version loaded"></small></div>
     <div class="vpick" id="vpick" hidden><select id="vsel" aria-label="Open version"></select><span class="save" id="save"></span></div>
     <div class="who" id="who" hidden><span id="whoMail"></span><button id="logout">Sign out</button></div>
   </div>
@@ -202,14 +204,15 @@ pre.txt{white-space:pre-wrap;word-break:break-word;background:var(--sunk);border
 <input type="file" id="seedIn" accept="application/json,.json" hidden>
 <input type="file" id="photoIn" accept="image/*" hidden>
 <div class="toast" id="toast" hidden role="status"></div>
+<div class="update" id="update" hidden role="status"><span>A new version is available.</span><button class="btn sm acc">Reload</button></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
-<script src="config.js"></script>
-<script src="fonts.js"></script>
-<script src="cv-engine.js"></script>
-<script src="app.js"></script>
+<script src="config.js?v=202611112124"></script>
+<script src="fonts.js?v=202611112124"></script>
+<script src="cv-engine.js?v=202611112124"></script>
+<script src="app.js?v=202611112124"></script>
 </body>
 </html>

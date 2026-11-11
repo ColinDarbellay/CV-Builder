@@ -42,6 +42,8 @@ Mise en place : environ 30 minutes, une seule fois.
 
 ## Bon à savoir
 
+- Avant chaque commit de l'app, lance `./bump-version.sh` : il date la version et force les navigateurs à recharger les fichiers (GitHub Pages les garde 10 minutes en cache). L'app propose « Reload » quand une version plus récente est en ligne ; la date de la version chargée s'affiche à côté du nom de l'app.
+
 - Le PDF utilise la police Rubik intégrée avec une table Unicode : le texte reste sélectionnable et extractible, sans ligatures. La colonne principale est écrite avant la barre latérale.
 - Le score ATS mesure la couverture des mots-clés de l'offre, pas la note d'un logiciel précis.
 - Le navigateur garde une copie locale de tes données pour un affichage rapide ; « Se déconnecter » l'efface. Utilise l'app sur ton ordinateur personnel.

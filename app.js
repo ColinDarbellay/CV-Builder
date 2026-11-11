@@ -751,6 +751,26 @@ $("#photoIn").addEventListener("change", e => { const f = e.target.files[0]; e.t
 addEventListener("resize", () => { if (S.tab === "pdf" && S.pdfDoc) { clearTimeout(pdfT); pdfT = setTimeout(() => drawPages(S.pdfDoc, pdfRun), 200); } });
 addEventListener("beforeunload", e => { if (saveT && $("#save").textContent === "Edited…") { flush(S.curId); e.preventDefault(); } });
 
+/* ---------- new version check (GitHub Pages caches files for up to 10 minutes) ---------- */
+const APP_VERSION = document.documentElement.dataset.version || "";
+async function checkUpdate() {
+  if (!APP_VERSION || !/^https?:/.test(location.protocol)) return;
+  try {
+    const r = await fetch(location.pathname + "?check=" + Date.now(), { cache: "no-store" });
+    const m = (await r.text()).match(/data-version="(\d+)"/);
+    if (m && m[1] !== APP_VERSION && m[1] > APP_VERSION) {
+      const el = $("#update"); el.hidden = false;
+      el.querySelector("button").onclick = () => { if (saveT) flush(S.curId); location.replace(location.pathname + "?v=" + m[1]); };
+    }
+  } catch (_) {}
+}
+(() => { const m = APP_VERSION.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/); if (!m) return;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]));
+  $("#ver").textContent = d.toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); })();
+document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdate(); });
+setInterval(checkUpdate, 5 * 60 * 1000);
+setTimeout(checkUpdate, 3000);
+
 /* ---------- boot ---------- */
 (async () => {
   Store.load();
