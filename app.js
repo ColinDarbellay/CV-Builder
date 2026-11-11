@@ -219,17 +219,18 @@ function renderEdit() {
   const ctrl = (list, i) => `<button class="btn sm" data-act="up" data-list="${list}" data-i="${i}" aria-label="Monter">↑</button><button class="btn sm" data-act="down" data-list="${list}" data-i="${i}" aria-label="Descendre">↓</button><button class="btn sm" data-act="rm" data-list="${list}" data-i="${i}" aria-label="Supprimer">✕</button>`;
   const sec = (id, title, small, body) => `<details class="sec" data-sec="${id}" ${S.openSecs.has(id) ? "open" : ""}><summary>${title}<small>${small ?? ""}</small></summary><div class="sbody">${body}</div></details>`;
   const add = (list, label) => `<div><button class="btn" data-act="add" data-list="${list}">+ ${label}</button></div>`;
-  const bl = (n) => Math.min(10, (n || 0) + 2);
+  const bul = (p, label) => { const arr = getP(cv, p) || [];
+    return `<div class="bul" data-bl="${p}"><label>${label}</label>${arr.map((b, j) => `<div class="bi"><span aria-hidden="true">•</span><textarea rows="1" id="f-${p}.${j}" data-k="${p}.${j}" data-bullet="1" aria-label="Puce ${j + 1}">${esc(b)}</textarea><button class="btn sm" data-act="brm" data-p="${p}" data-j="${j}" aria-label="Supprimer la puce ${j + 1}">✕</button></div>`).join("")}<div><button class="btn sm" data-act="badd" data-p="${p}">+ Puce</button></div></div>`; };
 
   const exp = cv.experience.map((e, i) => `<div class="card ${e.hidden ? "off" : ""}"><div class="chead"><b>${esc(e.title || "Nouveau poste")}</b>${ctrl("experience", i)}</div>
     ${cb(`experience.${i}.hidden`, "Inclure dans cette version", true)}
     <div class="grid2">${inp(`experience.${i}.title`, "Poste")}${inp(`experience.${i}.dates`, "Dates", "01/2024 - Present")}</div>
     <div class="grid2">${inp(`experience.${i}.company`, "Entreprise")}${inp(`experience.${i}.location`, "Lieu")}</div>
-    ${ta(`experience.${i}.bullets`, "Réalisations · une puce par ligne", bl(e.bullets.length), true)}</div>`).join("");
+    ${bul(`experience.${i}.bullets`, "Réalisations · Entrée crée une nouvelle puce")}</div>`).join("");
   const edu = cv.education.map((e, i) => `<div class="card"><div class="chead"><b>${esc(e.degree || "Nouvelle formation")}</b>${ctrl("education", i)}</div>
     <div class="grid2">${inp(`education.${i}.degree`, "Diplôme")}${inp(`education.${i}.dates`, "Dates")}</div>
     <div class="grid2">${inp(`education.${i}.school`, "École")}${inp(`education.${i}.grade`, "Note")}</div>
-    ${ta(`education.${i}.bullets`, "Détails · une puce par ligne (facultatif)", bl(e.bullets.length), true)}</div>`).join("");
+    ${bul(`education.${i}.bullets`, "Détails (facultatif)")}</div>`).join("");
   const cer = cv.certifications.map((c, i) => `<div class="card"><div class="chead"><b>${esc(c.title || "Nouvelle certification")}</b>${ctrl("certifications", i)}</div>
     ${inp(`certifications.${i}.title`, "Intitulé")}<div class="grid2">${inp(`certifications.${i}.issuer`, "Organisme")}${inp(`certifications.${i}.date`, "Année")}</div></div>`).join("");
   const skl = cv.skills.map((s, i) => `<div class="card"><div class="chead"><b>${esc(s.name || "Nouveau groupe")}</b>${ctrl("skills", i)}</div>
@@ -275,6 +276,15 @@ function renderEdit() {
     sec("headings", "Titres des sections", "", `<p class="hint">Garde des intitulés standard (Summary, Experience, Education, Skills) : les parsers découpent le CV grâce à eux. Traduis-les seulement si tout le CV est traduit.</p>
       <div class="grid2">${Object.keys(BLANK.headings).map(k => inp(`headings.${k}`, k)).join("")}</div>`)
   ].join("");
+  autosizeAll();
+}
+function autosize(el) { el.style.height = "auto"; el.style.height = el.scrollHeight + 2 + "px"; }
+function autosizeAll(root) { (root || document).querySelectorAll("textarea[data-bullet]").forEach(autosize); }
+function bulletOp(p, fn, focusJ, caret) {
+  const v = cur(); if (!v) return; v.cv = fix(v.cv);
+  const arr = getP(v.cv, p); if (!Array.isArray(arr)) return;
+  fn(arr); S.openSecs.add(p.split(".")[0]); touch({ rerender: true });
+  if (focusJ != null) { const el = document.getElementById(`f-${p}.${focusJ}`); if (el) { el.focus(); const c = caret == null ? el.value.length : caret; el.setSelectionRange(c, c); } }
 }
 
 /* ---------- ATS ---------- */
@@ -618,6 +628,7 @@ $("#main").addEventListener("input", e => {
     setP(v.cv, el.dataset.k, val);
     const k = el.dataset.k;
     if (/^(experience|education|certifications|skills|languages|patents)\.\d+\.(title|degree|name|num)$/.test(k)) { const b = el.closest(".card")?.querySelector(".chead b"); if (b) b.textContent = el.value || "…"; }
+    if (el.dataset.bullet) autosize(el);
     if (k === "summary") { const sm = el.closest("details")?.querySelector("summary small"); if (sm) sm.textContent = `${words(el.value)} mots`; }
     touch({ rerender: el.type === "checkbox" });
   } else if (el.dataset.v) {
@@ -632,7 +643,21 @@ $("#main").addEventListener("input", e => {
     clearTimeout(x._t); x._t = setTimeout(() => { delete x._t; saveVersion({ id, ...x }); if (el.dataset.f === "status") renderApps(); }, el.tagName === "SELECT" ? 0 : 700);
   }
 });
-$("#main").addEventListener("toggle", e => { const d = e.target; if (d.dataset && d.dataset.sec) d.open ? S.openSecs.add(d.dataset.sec) : S.openSecs.delete(d.dataset.sec); }, true);
+$("#main").addEventListener("toggle", e => { const d = e.target; if (d.dataset && d.dataset.sec) { d.open ? S.openSecs.add(d.dataset.sec) : S.openSecs.delete(d.dataset.sec); if (d.open) autosizeAll(d); } }, true);
+$("#main").addEventListener("keydown", e => {
+  const el = e.target; if (!el.dataset || !el.dataset.bullet || e.isComposing) return;
+  const m = el.dataset.k.match(/^(.*)\.(\d+)$/); if (!m) return;
+  const p = m[1], j = +m[2];
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    const a = el.selectionStart, before = el.value.slice(0, a).trimEnd(), after = el.value.slice(el.selectionEnd).trimStart();
+    bulletOp(p, arr => { arr[j] = before; arr.splice(j + 1, 0, after); }, j + 1, 0);
+  } else if (e.key === "Backspace" && el.selectionStart === 0 && el.selectionEnd === 0 && j > 0) {
+    e.preventDefault();
+    const prevLen = (getP(cur().cv, p)[j - 1] || "").length;
+    bulletOp(p, arr => { arr[j - 1] = (arr[j - 1] || "") + (el.value ? (arr[j - 1] ? " " : "") + el.value : ""); arr.splice(j, 1); }, j - 1, prevLen);
+  }
+});
 $("#main").addEventListener("submit", e => {
   e.preventDefault();
   if (e.target.id === "login") return signIn(e);
@@ -665,6 +690,8 @@ $("#main").addEventListener("click", async e => {
     else if (act === "rm") arm(b, () => { arr.splice(i, 1); touch({ rerender: true }); });
     return;
   }
+  if (act === "badd") { const p = b.dataset.p, n = (getP(fix(v.cv), p) || []).length; bulletOp(p, arr => arr.push(""), n); return; }
+  if (act === "brm") { const p = b.dataset.p, j = +b.dataset.j; arm(b, () => bulletOp(p, arr => arr.splice(j, 1))); return; }
   if (act === "quick") return quickAnalyse();
   if (act === "claude") { if ((v.jobAd || "").trim().length < 80) { toast("Colle d'abord le texte complet de l'offre."); return; } S.claude = true; $("#claudebox").hidden = false; $("#claudebox").scrollIntoView({ block: "nearest" }); return; }
   if (act === "prompt") return copy(buildPrompt(v), "Prompt copié : colle-le dans Claude");
