@@ -221,7 +221,7 @@ function renderEdit() {
   const sec = (id, title, small, body) => `<details class="sec" data-sec="${id}" ${S.openSecs.has(id) ? "open" : ""}><summary>${title}<small>${small ?? ""}</small></summary><div class="sbody">${body}</div></details>`;
   const add = (list, label) => `<div><button class="btn" data-act="add" data-list="${list}">+ ${label}</button></div>`;
   const bul = (p, label) => { const arr = getP(cv, p) || [];
-    return `<div class="bul" data-bl="${p}"><label>${label}</label>${arr.map((b, j) => `<div class="bi"><span aria-hidden="true">•</span><textarea rows="1" id="f-${p}.${j}" data-k="${p}.${j}" data-bullet="1" aria-label="Bullet ${j + 1}">${esc(b)}</textarea><button class="btn sm" data-act="brm" data-p="${p}" data-j="${j}" aria-label="Delete bullet ${j + 1}">✕</button></div>`).join("")}<div><button class="btn sm" data-act="badd" data-p="${p}">+ Bullet</button></div></div>`; };
+    return `<div class="bul" data-bl="${p}"><label>${label}</label>${arr.map((b, j) => `<div class="bi"><span aria-hidden="true">•</span><textarea rows="1" id="f-${p}.${j}" data-k="${p}.${j}" data-bullet="1" aria-label="Bullet ${j + 1}">${esc(b)}</textarea><div class="bctl"><button class="btn sm" data-act="bup" data-p="${p}" data-j="${j}" aria-label="Move bullet ${j + 1} up" ${j === 0 ? "disabled" : ""}>↑</button><button class="btn sm" data-act="bdown" data-p="${p}" data-j="${j}" aria-label="Move bullet ${j + 1} down" ${j === arr.length - 1 ? "disabled" : ""}>↓</button><button class="btn sm" data-act="brm" data-p="${p}" data-j="${j}" aria-label="Delete bullet ${j + 1}">✕</button></div></div>`).join("")}<div><button class="btn sm" data-act="badd" data-p="${p}">+ Bullet</button></div></div>`; };
 
   const exp = cv.experience.map((e, i) => `<div class="card ${e.hidden ? "off" : ""}"><div class="chead"><b>${esc(e.title || "New role")}</b>${ctrl("experience", i)}</div>
     ${cb(`experience.${i}.hidden`, "Include in this version", true)}
@@ -712,6 +712,14 @@ $("#main").addEventListener("click", async e => {
     return;
   }
   if (act === "badd") { const p = b.dataset.p, n = (getP(fix(v.cv), p) || []).length; bulletOp(p, arr => arr.push(""), n); return; }
+  if (act === "bup" || act === "bdown") {
+    const p = b.dataset.p, j = +b.dataset.j, k = act === "bup" ? j - 1 : j + 1;
+    const y = b.getBoundingClientRect().top;
+    bulletOp(p, arr => { if (k < 0 || k >= arr.length) return; [arr[j], arr[k]] = [arr[k], arr[j]]; });
+    const nb = document.querySelector(`[data-act="${act}"][data-p="${p}"][data-j="${k}"]`) || document.querySelector(`[data-act="brm"][data-p="${p}"][data-j="${k}"]`);
+    if (nb) { window.scrollBy(0, nb.getBoundingClientRect().top - y); nb.focus({ preventScroll: true }); }
+    return;
+  }
   if (act === "brm") { const p = b.dataset.p, j = +b.dataset.j; arm(b, () => bulletOp(p, arr => arr.splice(j, 1))); return; }
   if (act === "quick") return quickAnalyse();
   if (act === "claude") { if ((v.jobAd || "").trim().length < 80) { toast("Paste the full text of the ad first."); return; } S.claude = true; $("#claudebox").hidden = false; $("#claudebox").scrollIntoView({ block: "nearest" }); return; }

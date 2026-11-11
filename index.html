@@ -92,7 +92,9 @@ details.sec>summary small{font:400 12px var(--f-mono);color:var(--muted);margin-
 .bi{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:6px;align-items:start}
 .bi>span{color:var(--accent);font-weight:700;padding-top:7px;text-align:center}
 .bi textarea{resize:none;overflow:hidden;min-height:38px;line-height:1.4}
-.bi .btn{margin-top:4px;color:var(--muted)}
+.bctl{display:flex;gap:4px;margin-top:4px}
+.bctl .btn{color:var(--muted);min-width:32px;padding:3px 0}
+@media (max-width:620px){.bctl{flex-direction:column}}
 .chead{display:flex;align-items:center;gap:6px}
 .chead b{flex:1;min-width:0;font:600 14px var(--f-body);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .newv{border:1px dashed var(--accent);background:var(--accent-soft)}
