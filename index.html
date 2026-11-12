@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-version="202611121642">
+<html lang="en" data-version="202611122051">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -8,7 +8,14 @@
 <title>CV Builder</title>
 <meta name="theme-color" content="#30302E">
 <meta name="color-scheme" content="dark">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='5' y='3' width='22' height='26' rx='2' fill='%23fff' stroke='%2324405c' stroke-width='2'/%3E%3Crect x='19' y='4' width='7' height='24' fill='%2324405c'/%3E%3Cpath d='M9 10h7M9 14h7M9 18h7M9 22h5' stroke='%231a8cff' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CV Builder">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
@@ -180,7 +187,7 @@ pre.txt{white-space:pre-wrap;word-break:break-word;background:var(--sunk);border
 <body>
 <header class="bar gut">
   <div class="bar-in">
-    <div class="brand"><i aria-hidden="true"></i>CV Builder <small id="ver" title="Version loaded"></small></div>
+    <div class="brand"><img src="icon.svg" alt="" width="24" height="24" style="border-radius:6px;display:block">CV Builder <small id="ver" title="Version loaded"></small></div>
     <div class="vpick" id="vpick" hidden><select id="vsel" aria-label="Open version"></select><span class="save" id="save"></span></div>
     <div class="who" id="who" hidden><span id="whoMail"></span><button id="logout">Sign out</button></div>
   </div>
@@ -213,9 +220,9 @@ pre.txt{white-space:pre-wrap;word-break:break-word;background:var(--sunk);border
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
-<script src="config.js?v=202611121642"></script>
-<script src="fonts.js?v=202611121642"></script>
-<script src="cv-engine.js?v=202611121642"></script>
-<script src="app.js?v=202611121642"></script>
+<script src="config.js?v=202611122051"></script>
+<script src="fonts.js?v=202611122051"></script>
+<script src="cv-engine.js?v=202611122051"></script>
+<script src="app.js?v=202611122051"></script>
 </body>
 </html>
