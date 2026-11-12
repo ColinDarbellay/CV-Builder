@@ -47,18 +47,27 @@
   /* Two passes: the first measures the room left on page 1 after the last role kept there,
      the second spreads that room over the gaps between sections, roles and bullets. */
   function layoutCV(cv, opt) {
-    const first = layoutPass(cv, opt, { b: 0, r: 0, s: 0 }), f = first.fill;
-    if (!f.broke) return first.pages;
-    const slack = G.BOT - 1 - f.endY, denom = f.nB * 1 + f.nR * 4 + f.nS * 2.5;
-    if (slack < 1 || denom <= 0) return first.pages;
-    const k = Math.min(1.6, slack / denom);
-    return layoutPass(cv, opt, { b: k, r: 4 * k, s: 2.5 * k }).pages;
+    const Z = { b: 0, r: 0, s: 0 };
+    /* measuring pass: the sidebar may run past the page so its true length is known */
+    const m = layoutPass(cv, opt, Z, { measure: true, sq: 0, D: 31 }).fill;
+    /* sidebar: keep everything up to the patents on page 1 by tightening gaps, then the photo */
+    let sq = 0, D = 31;
+    const over = m.sideEnd - (G.BOT - 0.5);
+    if (over > 0 && m.sideW > 0) { sq = Math.min(1.6, over / m.sideW); const rest = over - sq * m.sideW; if (rest > 0) D = Math.max(25, 31 - rest); }
+    /* main column: stretch page 1 when the forced page break leaves room */
+    let X = Z;
+    if (m.broke) {
+      const slack = G.BOT - 1 - m.endY, denom = m.nB * 1 + m.nR * 4 + m.nS * 2.5;
+      if (slack >= 1 && denom > 0) { const k = Math.min(1.6, slack / denom); X = { b: k, r: 4 * k, s: 2.5 * k }; }
+    }
+    return layoutPass(cv, opt, X, { measure: false, sq, D }).pages;
   }
-  function layoutPass(cv, opt, X) {
+  function layoutPass(cv, opt, X, M) {
+    M = M || { measure: false, sq: 0, D: 31 };
     opt = opt || {};
     const doc = measureDoc();
     const P1 = Math.max(0, Math.round(+cv.page1Roles || 0)); // roles kept on page 1; 0 = no forced break
-    const fill = { broke: false, endY: null, nB: 0, nR: 0, nS: 0 };
+    const fill = { broke: false, endY: null, nB: 0, nR: 0, nS: 0, sideEnd: 0, sideW: 0 };
     const stretch = f => f.key === "main" && f.p === 0 && P1 > 0 && !fill.broke;
     const H = cv.headings || {}, show = cv.show || {};
     const acc = cv.accent || "#1a8cff";
@@ -70,6 +79,9 @@
 
     const fm = { p: 0, y: G.TOP, key: "main", sec: null, X: G.MX, R: G.MR, color: C.ink, rule: C.rule };
     const fs = { p: 0, y: G.TOP, key: "side", sec: null, X: G.SX, R: G.SR, color: C.white, rule: C.white };
+    /* sidebar gap tightening (page 1, up to the patents); also counts the weights during the measuring pass */
+    let sideCount = true;
+    const q = w => { if (!sideCount || fs.p !== 0) return 0; fill.sideW += w; return M.sq * w; };
 
     const font = (w, size) => { doc.setFont(FONT[w]); doc.setFontSize(size); };
     const width = (s, w, size) => { font(w, size); return doc.getTextWidth(s); };
@@ -80,8 +92,8 @@
 
     function heading(f, label) {
       const atTop = f.y <= G.TOP + 0.01;
-      if (!atTop) { f.y += f.key === "main" ? 5.2 : 9.9; if (stretch(f)) { f.y += X.s; fill.nS++; } }
-      if (f.y + 6.4 + 9.5 > G.BOT) breakPage(f, false);
+      if (!atTop) { f.y += f.key === "main" ? 5.2 : 9.9; if (f.key === "side") f.y -= q(2); if (stretch(f)) { f.y += X.s; fill.nS++; } }
+      if (f.y + 6.4 + 9.5 > G.BOT && !(f.key === "side" && M.measure)) breakPage(f, false);
       drawHeading(f, label);
       f.sec = label;
     }
@@ -96,7 +108,7 @@
       f.y = G.TOP;
       if (repeat && f.sec) drawHeading(f, f.sec);
     }
-    const room = (f, need) => { if (f.y + need > G.BOT) { breakPage(f, true); return true; } return false; };
+    const room = (f, need) => { if (f.key === "side" && M.measure) return false; if (f.y + need > G.BOT) { breakPage(f, true); return true; } return false; };
 
     /* paragraph lines with a fixed pitch */
     function para(f, s, x, maxW, w, size, c, pitch) {
@@ -198,8 +210,8 @@
     }
 
     /* ===== SIDEBAR ===== */
-    const D = 31;
-    if (show.photo !== false && opt.photo) { push(fs, { t: "img", src: opt.photo, x: (G.SBX + G.W) / 2 - D / 2, y: G.TOP, w: D, h: D }); fs.y = G.TOP + D + 13.2; fs.sec = "photo"; }
+    const D = M.D;
+    if (show.photo !== false && opt.photo) { push(fs, { t: "img", src: opt.photo, x: (G.SBX + G.W) / 2 - D / 2, y: G.TOP, w: D, h: D }); fs.y = G.TOP + D + 13.2 - q(2); fs.sec = "photo"; }
 
     const sideHead = label => { if (fs.sec === "photo") { fs.sec = null; drawHeading(fs, label); fs.sec = label; } else heading(fs, label); };
 
@@ -207,37 +219,43 @@
     if (skills.length) {
       sideHead(H.skills || "Skills");
       skills.forEach((s, i) => {
-        if (i) fs.y += 2.73;
+        if (i) fs.y += 2.73 - q(1);
         room(fs, 10);
-        if (clean(s.name)) { text(fs, s.name, G.SX, fs.y, "M", 8.75, C.white); fs.y += 5.5; }
+        if (clean(s.name)) { text(fs, s.name, G.SX, fs.y, "M", 8.75, C.white); fs.y += 5.5 - q(0.5); }
         para(fs, s.text, G.SX, G.SR - G.SX, "L", 8.2, C.sideInk, 3.97);
       });
     }
     const langs = (cv.languages || []).filter(l => clean(l.name));
     if (langs.length) {
       sideHead(H.languages || "Languages");
+      const dotsLeft = G.SR - 0.55 - 4 * 2.1 - 1.4;
+      const oneLine = langs.every(l => !clean(l.level) || G.SX + width(clean(l.name), "L", 9) + 2 + width(clean(l.level), "L", 7.7) <= dotsLeft - 1.5);
       langs.forEach((l, i) => {
-        if (i) fs.y += 3.6;
-        room(fs, 8);
-        text(fs, l.name, G.SX, fs.y, "L", 9, C.white);
+        if (i) fs.y += (oneLine ? 2.3 : 3.6) - q(0.6);
+        room(fs, oneLine ? 5 : 8);
+        const nm = clean(l.name), lv = clean(l.level), nw = width(nm, "L", 9);
+        text(fs, nm, G.SX, fs.y, "L", 9, C.white);
         const cy = fs.y + 2.05, n = Math.max(0, Math.min(5, +l.dots || 0));
         for (let k = 0; k < 5; k++) push(fs, { t: "circle", x: G.SR - 0.55 - (4 - k) * 2.1, y: cy, r: 0.52, c: k < n ? acc : C.dotOff });
-        fs.y += 4.1;
-        if (clean(l.level)) { text(fs, l.level, G.SX, fs.y, "L", 7.7, C.sideMuted); }
-        fs.y += 4.0;
+        if (oneLine) {
+          if (lv) text(fs, lv, G.SX + nw + 2, fs.y + (9 - 7.7) * PT * ASC, "L", 7.7, C.sideMuted); fs.y += 4.6;   // one line: name, level, dots
+        } else {
+          fs.y += 4.1; if (lv) text(fs, lv, G.SX, fs.y, "L", 7.7, C.sideMuted); fs.y += 4.0;          // level too long: second line
+        }
       });
     }
     const pats = (cv.patents || []).filter(p => clean(p.num) || clean(p.title));
     if (show.patents !== false && pats.length) {
       sideHead(H.patents || "Patents");
       pats.forEach((p, i) => {
-        if (i) fs.y += 3.1;
+        if (i) fs.y += 3.1 - q(1);
         room(fs, 12);
         if (clean(p.num)) { text(fs, p.num, G.SX, fs.y, "M", 8.6, C.white); fs.y += 3.9; }
         para(fs, p.title, G.SX, G.SR - G.SX, "L", 8.25, C.sideInk, 4.2);
         if (clean(p.detail)) para(fs, p.detail, G.SX, G.SR - G.SX, "L", 8.25, C.sideMuted, 4.2);
       });
     }
+    sideCount = false; fill.sideEnd = fs.p === 0 ? fs.y : G.BOT + 100;
     if (show.interests !== false && clean(cv.interests)) {
       sideHead(H.interests || "Interests");
       fs.y += 0.6;
