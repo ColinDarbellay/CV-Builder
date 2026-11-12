@@ -138,8 +138,10 @@
       r.forEach(item => {
         const tw = width(item, "L", 7.8);
         if (x > G.MX && x + 4.1 + tw > G.MR) { x = G.MX; y += 5.3; }
-        push(fm, { t: "icon", kind: iconKind(item), x, y: y + 1.65, c: C.icon });
+        const kind = iconKind(item), url = contactUrl(item, kind);
+        push(fm, { t: "icon", kind, x, y: y + 1.65, c: C.icon });
         text(fm, item, x + 4.1, y, "L", 7.8, C.ink);
+        if (url) push(fm, { t: "link", x, y: y - 0.4, w: 4.1 + tw, h: 4, url });
         x += 4.1 + tw + 4.9;
       });
       y += 5.3;
@@ -244,6 +246,17 @@
     return { pages, fill };
   }
 
+  /* Real link targets, so PDF viewers don't have to guess them from the text */
+  function contactUrl(item, kind) {
+    const t = String(item || "").trim();
+    if (kind === "mail") { const m = t.match(/[\w.+-]+@[\w-]+(\.[\w-]+)+/); return m ? "mailto:" + m[0] : null; }
+    if (kind === "phone") { const d = t.replace(/[^\d+]/g, ""); return d.length >= 7 ? "tel:" + d : null; }
+    if (kind === "link") {
+      if (/^https?:\/\//i.test(t)) return t;
+      return "https://" + t.replace(/^(linkedin\.com|github\.com)/i, "www.$1");
+    }
+    return null;
+  }
   function iconKind(s) {
     if (/@/.test(s)) return "mail";
     if (/linkedin|https?:|www\.|github|\.com\//i.test(s)) return "link";
@@ -269,6 +282,7 @@
     else if (op.t === "circle") { doc.setFillColor(op.c); doc.circle(op.x, op.y, op.r, "F"); }
     else if (op.t === "img") { try { doc.addImage(op.src, "JPEG", op.x, op.y, op.w, op.h, "photo", "FAST"); } catch (e) { /* unreadable photo: skip */ } }
     else if (op.t === "icon") drawIcon(doc, op);
+    else if (op.t === "link") doc.link(op.x, op.y, op.w, op.h, { url: op.url });
     else if (op.t === "text") { doc.setFont(FONT[op.w]); doc.setFontSize(op.size); doc.setTextColor(op.c); doc.text(op.s, op.x, op.y); }
   }
   function buildPdf(cv, opt) {
