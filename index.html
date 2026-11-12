@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-version="202611122126">
+<html lang="en" data-version="202611122133">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -34,14 +34,13 @@
 *{box-sizing:border-box}
 html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--f-body);min-height:100vh}
-body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bar)}
 button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 [hidden]{display:none!important}
 .gut{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 
 /* header */
-.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;background:var(--bar);color:var(--ink);border-bottom:1px solid var(--line);padding-block:10px}
+.bar{position:sticky;top:0;z-index:6;background:var(--bar);color:var(--ink);border-bottom:1px solid var(--line);padding-top:calc(10px + env(safe-area-inset-top,0px));padding-bottom:10px}
 .bar-in{max-width:1180px;margin:0 auto;display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
 .brand{font:700 15px var(--f-display);letter-spacing:.03em;display:flex;align-items:center;gap:9px;white-space:nowrap}
 .brand small{font:400 11px var(--f-mono);color:var(--muted);letter-spacing:0}
@@ -61,7 +60,7 @@ nav.tabs button[aria-selected="true"] b{background:rgba(30,22,64,.16);color:inhe
 main{max-width:1180px;margin:14px auto 0;padding-bottom:60px}
 .pane{display:flex;flex-direction:column;gap:12px}
 .cols{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
-@media (min-width:980px){.cols.ats{grid-template-columns:minmax(0,5fr) minmax(0,6fr)}.cols.pv{grid-template-columns:minmax(0,7fr) minmax(300px,4fr)}.stick{position:sticky;top:calc(env(safe-area-inset-top,0px) + 70px)}}
+@media (min-width:980px){.cols.ats{grid-template-columns:minmax(0,5fr) minmax(0,6fr)}.cols.pv{grid-template-columns:minmax(0,7fr) minmax(300px,4fr)}.stick{position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px)}}
 
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
 .panel h2{font:600 15px var(--f-display);letter-spacing:.01em;margin:0;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
@@ -180,7 +179,7 @@ pre.txt{white-space:pre-wrap;word-break:break-word;background:var(--sunk);border
 .update{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:30;background:var(--panel);border:1px solid var(--accent);border-radius:999px;padding:6px 6px 6px 14px;display:flex;gap:10px;align-items:center;box-shadow:var(--shadow);font-size:14px;max-width:calc(100% - 32px)}
 .photo{display:flex;gap:12px;align-items:center}
 .photo img{width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--sunk)}
-@media (max-width:620px){#whoMail{display:none}.save{display:none}.vpick{order:3;flex-basis:100%}}
+@media (max-width:620px){#whoMail{display:none}.save{display:none}.vpick{order:3;flex-basis:100%}nav.tabs{gap:3px}nav.tabs button{padding:7px 7px;gap:4px;font-size:13.5px}nav.tabs button b{padding:1px 4px;font-size:10.5px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -220,9 +219,9 @@ pre.txt{white-space:pre-wrap;word-break:break-word;background:var(--sunk);border
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
-<script src="config.js?v=202611122126"></script>
-<script src="fonts.js?v=202611122126"></script>
-<script src="cv-engine.js?v=202611122126"></script>
-<script src="app.js?v=202611122126"></script>
+<script src="config.js?v=202611122133"></script>
+<script src="fonts.js?v=202611122133"></script>
+<script src="cv-engine.js?v=202611122133"></script>
+<script src="app.js?v=202611122133"></script>
 </body>
 </html>
