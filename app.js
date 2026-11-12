@@ -797,11 +797,24 @@ function setPhoto(file) {
   fr.onload = () => {
     const im = new Image();
     im.onload = async () => {
-      const N = 360, c = document.createElement("canvas"); c.width = c.height = N; const g = c.getContext("2d");
+      /* Head-and-shoulders framing: portrait photos use a square up to 15% wider than the photo,
+         anchored near the top; the sides are padded with the backdrop colour. Landscape photos: centred square. */
+      const W = im.width, Hh = im.height, side = Hh > W ? Math.min(Hh, Math.round(W * 1.15)) : Hh;
+      const sx = (W - side) / 2, sy = Hh > W ? (Hh - side) * 0.1 : 0;
+      const N = Math.max(200, Math.min(900, side)); // keep up to 900 px, never upscale
+      const probe = document.createElement("canvas"); probe.width = W; probe.height = 8;
+      const pg = probe.getContext("2d"); pg.drawImage(im, 0, 0);
+      const px = (x, y) => pg.getImageData(x, y, 1, 1).data;
+      const a = px(4, 4), b = px(W - 5, 4), backdrop = `rgb(${(a[0] + b[0]) >> 1},${(a[1] + b[1]) >> 1},${(a[2] + b[2]) >> 1})`;
+      const c = document.createElement("canvas"); c.width = c.height = N; const g = c.getContext("2d");
+      g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
       g.fillStyle = "#24405c"; g.fillRect(0, 0, N, N);
-      const m = Math.min(im.width, im.height); g.save(); g.beginPath(); g.arc(N / 2, N / 2, N / 2 - 1, 0, Math.PI * 2); g.clip();
-      g.fillStyle = "#fff"; g.fillRect(0, 0, N, N); g.drawImage(im, (im.width - m) / 2, (im.height - m) / 2, m, m, 0, 0, N, N); g.restore();
-      try { await put("profile", "photo", { data: c.toDataURL("image/jpeg", 0.88), updatedAt: Date.now() }); S.pdfDirty = true; renderPane(); refreshLive(); toast("Photo updated"); }
+      g.save(); g.beginPath(); g.arc(N / 2, N / 2, N / 2 - 1, 0, Math.PI * 2); g.clip();
+      const k = N / side;
+      g.fillStyle = backdrop; g.fillRect(0, 0, N, N);
+      g.drawImage(im, 0, 0, W, Hh, -sx * k, -sy * k, W * k, Hh * k); g.restore();
+      try { await put("profile", "photo", { data: c.toDataURL("image/jpeg", 0.92), updatedAt: Date.now() }); S.pdfDirty = true; renderPane(); refreshLive();
+        toast(`Photo updated: ${N} px, about ${Math.round(N / (31 / 25.4))} dpi in the PDF${N < 366 ? ". A larger photo would print sharper" : ""}`); }
       catch (e) { toast(e.message || "Couldn't save the photo."); }
     };
     im.onerror = () => toast("Unreadable image. Try a JPEG or PNG.");
