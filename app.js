@@ -93,7 +93,7 @@ const photo = () => (Store.get("profile", "photo") || {}).data || null;
 const BLANK = {
   name: "", title: "", contacts: [""], summary: "", experience: [], education: [], certifications: [], skills: [], languages: [], patents: [], interests: "",
   headings: { summary: "Summary", experience: "Experience", education: "Education", certifications: "Certifications and Training", skills: "Skills", languages: "Languages", patents: "Patents", interests: "Interests" },
-  show: { photo: true, certifications: true, patents: true, interests: true }, accent: "#1a8cff"
+  show: { photo: true, certifications: true, patents: true, interests: true }, accent: "#1a8cff", page1Roles: 3
 };
 function fix(cv) {
   const o = { ...clone(BLANK), ...(cv || {}) };
@@ -271,10 +271,12 @@ function renderEdit() {
     sec("languages", "Languages", cv.languages.length, lng + add("languages", "Add language")),
     sec("patents", "Patents", cv.show.patents ? cv.patents.length : "hidden", cb("show.patents", "Show section") + pat + add("patents", "Add patent")),
     sec("interests", "Interests", cv.show.interests ? "" : "hidden", cb("show.interests", "Show section") + ta("interests", "Interests", 3)),
-    sec("style", "Photo and colour", "", `<div class="photo">${photo() ? `<img src="${photo()}" alt="CV photo">` : `<img alt="">`}
+    sec("style", "Layout and photo", "", `<div class="photo">${photo() ? `<img src="${photo()}" alt="CV photo">` : `<img alt="">`}
         <div class="row"><button class="btn" data-act="photo">Change photo</button></div></div>
       ${cb("show.photo", "Show the photo in this version")}
       <p class="hint">ATS ignore the photo. It is customary in Switzerland and Germany; hide it for UK or US applications. The photo is shared by all versions.</p>
+      <label>Roles on page 1<select id="f-page1Roles" data-k="page1Roles" data-num="1">${[[0, "Auto (no forced break)"], [1, "1"], [2, "2"], [3, "3"], [4, "4"], [5, "5"]].map(([n, l]) => `<option value="${n}" ${+cv.page1Roles === n ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+      <p class="hint">The next roles start on page 2, and page 1 spacing stretches to fill the page.</p>
       <label>Accent colour<select id="f-accent" data-k="accent">${ACCENTS.map(([c, n]) => `<option value="${c}" ${cv.accent === c ? "selected" : ""}>${n}</option>`).join("")}</select></label>`),
     sec("headings", "Section titles", "", `<p class="hint">Keep standard titles (Summary, Experience, Education, Skills): parsers split the CV on them. Translate them only if the whole CV is translated.</p>
       <div class="grid2">${Object.keys(BLANK.headings).map(k => inp(`headings.${k}`, k)).join("")}</div>`)

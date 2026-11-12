@@ -5,12 +5,12 @@
   const PT = 25.4 / 72;            // mm per point
   const ASC = 0.935, BOX = 1.185;  // Rubik ascender and line-box height, in em
   const G = {
-    W: 210, H: 297, SBX: 137.5, BAND: 3.4,
+    W: 210, H: 297, SBX: 137.5,
     MX: 11.8, MR: 129.8, BX: 12.3, BT: 15.0,
     SX: 145.8, SR: 201.5, TOP: 9.5, BOT: 287
   };
   const C = {
-    ink: "#303030", name: "#262626", rule: "#cfcfcf", side: "#24405c", band: "#1b3048",
+    ink: "#303030", name: "#262626", rule: "#cfcfcf", side: "#24405c",
     sideInk: "#f4f6f9", sideMuted: "#889db4", white: "#ffffff", dotOff: "#c3ccd6", icon: "#4a4a4a"
   };
   const FONT = { L: "Rubik300", M: "Rubik500", B: "Rubik700" };
@@ -44,16 +44,27 @@
   }
 
   /* ---------- layout ---------- */
+  /* Two passes: the first measures the room left on page 1 after the last role kept there,
+     the second spreads that room over the gaps between sections, roles and bullets. */
   function layoutCV(cv, opt) {
+    const first = layoutPass(cv, opt, { b: 0, r: 0, s: 0 }), f = first.fill;
+    if (!f.broke) return first.pages;
+    const slack = G.BOT - 1 - f.endY, denom = f.nB * 1 + f.nR * 4 + f.nS * 2.5;
+    if (slack < 1 || denom <= 0) return first.pages;
+    const k = Math.min(1.6, slack / denom);
+    return layoutPass(cv, opt, { b: k, r: 4 * k, s: 2.5 * k }).pages;
+  }
+  function layoutPass(cv, opt, X) {
     opt = opt || {};
     const doc = measureDoc();
+    const P1 = Math.max(0, Math.round(+cv.page1Roles || 0)); // roles kept on page 1; 0 = no forced break
+    const fill = { broke: false, endY: null, nB: 0, nR: 0, nS: 0 };
+    const stretch = f => f.key === "main" && f.p === 0 && P1 > 0 && !fill.broke;
     const H = cv.headings || {}, show = cv.show || {};
     const acc = cv.accent || "#1a8cff";
     const pages = [];
     const newPage = () => {
-      const bg = [{ t: "rect", x: G.SBX, y: 0, w: G.W - G.SBX, h: G.H, c: C.side }];
-      if (!pages.length) bg.push({ t: "rect", x: G.SBX, y: 0, w: G.W - G.SBX, h: G.BAND, c: C.band });
-      pages.push({ bg, main: [], side: [] });
+      pages.push({ bg: [{ t: "rect", x: G.SBX, y: 0, w: G.W - G.SBX, h: G.H, c: C.side }], main: [], side: [] });
     };
     newPage();
 
@@ -69,7 +80,7 @@
 
     function heading(f, label) {
       const atTop = f.y <= G.TOP + 0.01;
-      if (!atTop) f.y += f.key === "main" ? 5.2 : 9.9;
+      if (!atTop) { f.y += f.key === "main" ? 5.2 : 9.9; if (stretch(f)) { f.y += X.s; fill.nS++; } }
       if (f.y + 6.4 + 9.5 > G.BOT) breakPage(f, false);
       drawHeading(f, label);
       f.sec = label;
@@ -94,7 +105,7 @@
     function bullets(f, list) {
       list.filter(b => clean(b)).forEach((b, i) => {
         const lines = wrap(b, G.MR - G.BT, "L", 7.7);
-        if (i) f.y += 0.2;
+        if (i) { f.y += 0.2; if (stretch(f)) { f.y += X.b; fill.nB++; } }
         lines.forEach((ln, k) => {
           room(f, boxH(7.7));
           if (k === 0) text(f, "•", G.BX, f.y, "L", 7.7, C.ink);
@@ -137,6 +148,7 @@
     fm.y = Math.max(fm.y, 30);
 
     if (clean(cv.summary)) {
+      if (stretch(fm)) { fm.y += X.s; fill.nS++; }
       drawHeading(fm, H.summary || "Summary"); fm.sec = H.summary;
       para(fm, cv.summary, G.MX, G.MR - G.MX, "L", 7.85, C.ink, 3.72);
     }
@@ -145,7 +157,8 @@
     if (exps.length) {
       heading(fm, H.experience || "Experience");
       exps.forEach((e, i) => {
-        if (i) fm.y += 2.65;
+        if (P1 && i === P1 && fm.p === 0) { fill.endY = fm.y; fill.broke = true; breakPage(fm, true); }
+        else if (i) { fm.y += 2.65; if (stretch(fm)) { fm.y += X.r; fill.nR++; } }
         room(fm, 17.5);
         row(fm, e.title, e.dates, "L", 9.3, C.ink, 7.6, 4.1); fm.y += 4.5;
         row(fm, e.company, e.location, "L", 8.5, acc, 7.6, 3.9); fm.y += 4.4;
@@ -183,7 +196,7 @@
     }
 
     /* ===== SIDEBAR ===== */
-    const D = 26.8;
+    const D = 31;
     if (show.photo !== false && opt.photo) { push(fs, { t: "img", src: opt.photo, x: (G.SBX + G.W) / 2 - D / 2, y: G.TOP, w: D, h: D }); fs.y = G.TOP + D + 13.2; fs.sec = "photo"; }
 
     const sideHead = label => { if (fs.sec === "photo") { fs.sec = null; drawHeading(fs, label); fs.sec = label; } else heading(fs, label); };
@@ -228,7 +241,7 @@
       fs.y += 0.6;
       para(fs, cv.interests, G.SX, G.SR - G.SX, "L", 7.8, C.sideInk, 4.6);
     }
-    return pages;
+    return { pages, fill };
   }
 
   function iconKind(s) {
