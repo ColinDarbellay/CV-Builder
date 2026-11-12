@@ -4,6 +4,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const clone = o => JSON.parse(JSON.stringify(o));
 const mkid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/-/g, "").slice(0, 20);
+const pl = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 const words = s => (String(s || "").trim().match(/\S+/g) || []).length;
 const E = window.CVEngine;
 const ZOOM_OK = z => [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3].includes(z);
@@ -81,10 +82,10 @@ const STATUSES = [["draft", "Draft"], ["sent", "Applied"], ["interview", "Interv
 const STATUS_LABEL = Object.fromEntries(STATUSES);
 const ACCENTS = [["#1a8cff", "Blue (template)"], ["#1f8a8a", "Teal"], ["#b0452a", "Brick"], ["#3a3f47", "Graphite"]];
 const S = {
-  tab: "pdf", zoom: 1, pdfDoc: null, curId: null, filter: "all", openSecs: new Set(["meta", "header"]), newForm: false, more: new Set(),
+  tab: "pdf", rfilter: "all", rclaude: false, zoom: 1, pdfDoc: null, curId: null, filter: "all", openSecs: new Set(["meta", "header"]), newForm: false, more: new Set(),
   claude: false, pdf: null, pdfText: "", pdfBusy: false, pdfDirty: true, pages: 0
 };
-try { const t = localStorage.getItem("cvb-tab"); if (["edit", "ats", "pdf", "apps"].includes(t)) S.tab = t; const z = +localStorage.getItem("cvb-zoom"); if (ZOOM_OK(z)) S.zoom = z; } catch (_) {}
+try { const t = localStorage.getItem("cvb-tab"); if (["edit", "ats", "review", "pdf", "apps"].includes(t)) S.tab = t; const z = +localStorage.getItem("cvb-zoom"); if (ZOOM_OK(z)) S.zoom = z; } catch (_) {}
 
 const versions = () => Store.list("versions").sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 const cur = () => S.curId ? Store.get("versions", S.curId) : null;
@@ -137,7 +138,7 @@ function render() {
   $("#vpick").hidden = false; $("#tabs").hidden = false;
   renderBar(); renderTabs(); renderPane();
 }
-function hideApp() { $("#first").hidden = true; $("#vpick").hidden = true; $("#tabs").hidden = true; ["edit", "ats", "pdf", "apps"].forEach(p => $("#pane-" + p).hidden = true); }
+function hideApp() { $("#first").hidden = true; $("#vpick").hidden = true; $("#tabs").hidden = true; ["edit", "ats", "review", "pdf", "apps"].forEach(p => $("#pane-" + p).hidden = true); }
 function renderBar() {
   const list = versions(), tpl = list.filter(v => v.isTemplate), apps = list.filter(v => !v.isTemplate);
   const opt = v => `<option value="${v.id}" ${v.id === S.curId ? "selected" : ""}>${esc(v.label || "Untitled")}${v.company ? " · " + esc(v.company) : ""}</option>`;
@@ -145,11 +146,11 @@ function renderBar() {
 }
 function renderTabs() {
   document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === S.tab));
-  ["edit", "ats", "pdf", "apps"].forEach(p => $("#pane-" + p).hidden = p !== S.tab);
+  ["edit", "ats", "review", "pdf", "apps"].forEach(p => $("#pane-" + p).hidden = p !== S.tab);
   refreshLive();
 }
 function renderPane() {
-  ({ edit: renderEdit, ats: renderAts, pdf: renderPdf, apps: renderApps })[S.tab]();
+  ({ edit: renderEdit, ats: renderAts, review: renderReview, pdf: renderPdf, apps: renderApps })[S.tab]();
 }
 /* small live counters that change on every keystroke */
 function refreshLive() {
@@ -158,6 +159,7 @@ function refreshLive() {
   $("#tabScore").textContent = sc.pct == null ? "–" : sc.pct + "%";
   clearTimeout(refreshLive.t); refreshLive.t = setTimeout(() => { try { S.pages = E.layoutCV(fix(cur().cv), { photo: photo() }).length; } catch (_) {} $("#tabPages").textContent = S.pages + " p."; }, 150);
   $("#tabApps").textContent = versions().filter(x => !x.isTemplate).length;
+  const ro = reviewOpen(v); $("#tabReview").textContent = v.review ? ro : "–";
   if (S.tab === "ats") refreshScore();
   if (S.tab === "pdf") schedulePdf();
 }
@@ -280,7 +282,7 @@ function renderEdit() {
   autosizeAll();
 }
 function autosize(el) { el.style.height = "auto"; el.style.height = el.scrollHeight + 2 + "px"; }
-function autosizeAll(root) { (root || document).querySelectorAll("textarea[data-bullet]").forEach(autosize); }
+function autosizeAll(root) { (root || document).querySelectorAll("textarea[data-bullet],textarea[data-grow]").forEach(autosize); }
 function bulletOp(p, fn, focusJ, caret) {
   const v = cur(); if (!v) return; v.cv = fix(v.cv);
   const arr = getP(v.cv, p); if (!Array.isArray(arr)) return;
@@ -393,7 +395,7 @@ function renderChecks() {
 function quickAnalyse() {
   const v = cur(); const ad = (v.jobAd || "").trim();
   if (ad.length < 80) { toast("Paste the full text of the ad first."); return; }
-  v.keywords = E.quickKeywords(ad); v.kwSource = "quick"; touch(); refreshScore(); toast(`${v.keywords.length} terms found`);
+  v.keywords = E.quickKeywords(ad); v.kwSource = "quick"; touch(); refreshScore(); toast(`${pl(v.keywords.length, "term")} found`);
 }
 function buildPrompt(v) {
   const cv = fix(v.cv), F = [];
@@ -449,7 +451,7 @@ function importAnswer() {
   v.uncovered = (Array.isArray(j.uncovered) ? j.uncovered : []).filter(u => u && u.term).slice(0, 12).map(u => ({ term: String(u.term), note: String(u.note || "") }));
   v.kwSource = "claude"; S.claude = false; err.textContent = "";
   touch(); renderAts();
-  toast(`${v.keywords.length} keywords and ${v.suggestions.length} rewrites imported`);
+  toast(`${pl(v.keywords.length, "keyword")} and ${pl(v.suggestions.length, "rewrite")} imported`);
 }
 function applySuggestion(i) {
   const v = cur(), s = v.suggestions[i]; if (!s) return;
@@ -457,6 +459,189 @@ function applySuggestion(i) {
   if (!text) { toast("The text to apply is empty."); return; }
   v.cv = fix(v.cv); setP(v.cv, s.path, text);
   s.after = text; s.state = "applied"; touch(); renderSuggestions(); refreshScore(); toast("Rewrite applied");
+}
+
+/* ---------- REVIEW: spelling, grammar and wording ---------- */
+const RTYPES = [["spelling", "Spelling"], ["grammar", "Grammar"], ["style", "Wording"]];
+const RTYPE_LABEL = Object.fromEntries(RTYPES);
+/* Every free-text field of the visible CV, in reading order. kind: bullet | prose | short */
+function textFields(cv) {
+  const F = [], add = (p, t, kind) => { if (String(t || "").trim()) F.push([p, String(t), kind]); };
+  add("title", cv.title, "short"); add("summary", cv.summary, "prose");
+  cv.experience.forEach((e, i) => { if (e.hidden) return; add(`experience.${i}.title`, e.title, "short"); e.bullets.forEach((b, j) => add(`experience.${i}.bullets.${j}`, b, "bullet")); });
+  cv.education.forEach((e, i) => { add(`education.${i}.degree`, e.degree, "short"); e.bullets.forEach((b, j) => add(`education.${i}.bullets.${j}`, b, "bullet")); });
+  if (cv.show.certifications !== false) cv.certifications.forEach((c, i) => add(`certifications.${i}.title`, c.title, "short"));
+  cv.skills.forEach((s, i) => { add(`skills.${i}.name`, s.name, "short"); add(`skills.${i}.text`, s.text, "prose"); });
+  cv.languages.forEach((l, i) => add(`languages.${i}.level`, l.level, "short"));
+  if (cv.show.patents !== false) cv.patents.forEach((p, i) => { add(`patents.${i}.title`, p.title, "short"); add(`patents.${i}.detail`, p.detail, "short"); });
+  if (cv.show.interests !== false) add("interests", cv.interests, "prose");
+  return F;
+}
+function fieldName(cv, path) {
+  const m = path.split("."), n = +m[1], b = m[3] != null ? ` · bullet ${+m[3] + 1}` : "";
+  if (path === "title") return "Headline"; if (path === "summary") return "Summary"; if (path === "interests") return "Interests";
+  if (m[0] === "experience") { const e = cv.experience[n]; const who = e ? (e.company || e.title || "Role") : "Role"; return m[2] === "bullets" ? who + b : `${who} · ${m[2] === "title" ? "role title" : m[2]}`; }
+  if (m[0] === "education") { const e = cv.education[n]; const who = e ? (e.degree || "Education") : "Education"; return m[2] === "bullets" ? who + b : `${who} · ${m[2]}`; }
+  if (m[0] === "certifications") return `Certification ${n + 1}`;
+  if (m[0] === "skills") { const s = cv.skills[n]; return m[2] === "name" ? `Skills · group ${n + 1} name` : `Skills · ${s ? s.name : ""}`; }
+  if (m[0] === "languages") { const l = cv.languages[n]; return `Languages · ${l ? l.name : ""}`; }
+  if (m[0] === "patents") { const p = cv.patents[n]; return `Patent ${p && p.num ? p.num : n + 1}${m[2] === "detail" ? " · status" : ""}`; }
+  return path;
+}
+
+/* Offline quick check: deterministic fixes plus flags. One combined edit per field, so fixes never collide. */
+const UK = (() => {
+  const stems = ["optimi", "analy", "organi", "prioriti", "characteri", "standardi", "minimi", "maximi", "utili", "reali", "recogni", "speciali", "summari", "visuali", "finali", "customi", "centrali", "categori", "digiti", "industriali", "stabili", "synchroni", "initiali", "parameteri", "miniaturi", "sterili", "commerciali", "emphasi", "authori", "normali", "moderni"];
+  const map = [];
+  stems.forEach(st => { const y = st === "analy" ? "yz" : "z", s2 = st === "analy" ? "ys" : "s", base = st === "analy" ? "anal" : st.slice(0, -1) + "i";
+    map.push([new RegExp(`\\b(${base})${y}(e|ed|es|ing|ation|ations|er|ers)\\b`, "gi"), (w, a, suf) => a + s2 + suf]); });
+  [["color", "colour"], ["behavior", "behaviour"], ["center", "centre"], ["centered", "centred"], ["fiber", "fibre"], ["liter", "litre"], ["modeling", "modelling"], ["modeled", "modelled"], ["labeled", "labelled"], ["labeling", "labelling"],
+   ["traveled", "travelled"], ["canceled", "cancelled"], ["defense", "defence"], ["catalog", "catalogue"], ["gray", "grey"], ["aluminum", "aluminium"], ["tumor", "tumour"], ["tumors", "tumours"], ["fueled", "fuelled"], ["enrollment", "enrolment"], ["counseling", "counselling"], ["favor", "favour"], ["endeavor", "endeavour"]]
+    .forEach(([us, uk]) => map.push([new RegExp(`\\b${us}\\b`, "gi"), w => w[0] === w[0].toUpperCase() ? uk[0].toUpperCase() + uk.slice(1) : uk]));
+  return map;
+})();
+const WEAK = /^(responsible for|helped|assisted( in| with)?|worked on|participated in|involved in|in charge of|tasked with|duties included)\b/i;
+function quickReview(cv) {
+  const fields = textFields(cv), items = [], notes = [];
+  const bullets = fields.filter(f => f[2] === "bullet");
+  const withDot = bullets.filter(f => /\.\s*$/.test(f[1])).length, dotRule = bullets.length ? (withDot * 2 > bullets.length ? "add" : "remove") : null;
+  for (const [path, text, kind] of fields) {
+    let t = text, why = [], type = null;
+    const set = (nt, label, ty) => { if (nt !== t) { t = nt; why.push(label); if (!type || ty === "spelling" || (ty === "grammar" && type === "style")) type = ty; } };
+    let u = t; UK.forEach(([re, fn]) => { u = u.replace(re, fn); }); set(u, "British spelling", "spelling");
+    set(t.replace(/\b(\w{2,})\s+\1\b/gi, (w, a) => /^\d+$/.test(a) ? w : a), "repeated word", "spelling");
+    set(t.replace(/ {2,}/g, " ").replace(/\s+([,.;:)])/g, "$1").replace(/\(\s+/g, "("), "spacing", "grammar");
+    if (kind === "bullet") {
+      set(t.replace(/^\s*([a-z])/, (w, c) => c.toUpperCase()), "capital letter", "grammar");
+      if (dotRule === "remove") set(t.replace(/\.\s*$/, ""), "no full stop, like your other bullets", "grammar");
+      if (dotRule === "add" && !/[.!?]\s*$/.test(t)) set(t.trimEnd() + ".", "full stop, like your other bullets", "grammar");
+    }
+    if (kind !== "short") {
+      set(t.replace(/\bin order to\b/gi, "to"), '"in order to" → "to"', "style");
+      set(t.replace(/\butili([sz])(e|ed|es|ing)\b/gi, (w, z, s) => ({ e: "use", ed: "used", es: "uses", ing: "using" })[s.toLowerCase()] || w), '"utilise" → "use"', "style");
+    }
+    if (t !== text) items.push({ path, before: text, after: t, type, why: why.join(", ").replace(/^./, c => c.toUpperCase()) + ".", src: "quick", state: null });
+    if (kind === "bullet" && WEAK.test(text.trim())) notes.push({ path, note: `Starts with "${text.trim().match(WEAK)[0]}": an action verb reads stronger.` });
+    if (kind === "bullet" && text.length > 220) notes.push({ path, note: `${text.length} characters: consider splitting or tightening.` });
+  }
+  const verbs = {};
+  bullets.forEach(([path, text]) => { const w = (text.trim().match(/^[A-Za-z-]+/) || [""])[0].toLowerCase(); if (w) (verbs[w] = verbs[w] || []).push(path); });
+  Object.entries(verbs).filter(([, ps]) => ps.length >= 3).forEach(([w, ps]) => notes.push({ path: null, note: `${ps.length} bullets start with "${w.replace(/^./, c => c.toUpperCase())}": vary the opening verbs.` }));
+  return { items, notes };
+}
+
+function buildReviewPrompt(v) {
+  const cv = fix(v.cv);
+  return `You are proofreading my CV. Work only on the fields listed below, each identified by its path.
+
+TASK 1 - corrections: fix spelling, grammar, punctuation and typos. Use British English spelling (-ise, -our, -re). Make punctuation and capitalisation consistent across bullets.
+
+TASK 2 - wording: suggest clearer, more concise wording where it genuinely helps: a stronger opening verb, less filler, no repeated opening verbs, parallel structure, consistent tense (past tense for past roles; current role either present or past, but consistent).
+
+Strict rules:
+- Never add facts, figures, results, tools, responsibilities or claims, and never change the meaning. Rephrase only what the field already says.
+- No buzzwords, superlatives or marketing language. Factual and concise; the new text should be as long as the original or shorter.
+- Never change names of people, companies, schools, products, standards, patents, numbers or dates.
+- At most ONE edit per field: combine all changes to that field into it. "type" is its main kind: "spelling", "grammar" or "style" (wording).
+- "before" must be copied exactly from the field; "after" is the full new text of that field.
+- Leave correct fields alone. At most 30 edits; corrections first, then the wording changes with the most impact.
+- Use "notes" for issues that need my decision rather than a rewrite (e.g. a vague claim, a missing figure, an inconsistency between sections). "path" may be null.
+
+Answer with JSON only, in a single code block, in exactly this shape:
+{"edits":[{"path":"","before":"","after":"","type":"spelling","why":"one short sentence"}],"notes":[{"path":null,"note":"one sentence"}]}
+
+MY CV - FIELDS (path => text):
+${textFields(cv).map(([p, t]) => `${p} => ${t.replace(/\s+/g, " ").trim()}`).join("\n")}
+
+CONTEXT (read only, do not edit):
+${cv.experience.filter(e => !e.hidden).map(e => `- ${e.title} | ${e.company} | ${e.dates}`).join("\n")}`;
+}
+function importReview() {
+  const v = cur(), raw = ($("#ranswer").value || "").trim(), err = $("#rerr");
+  const a = raw.indexOf("{"), b = raw.lastIndexOf("}");
+  let j = null; try { j = JSON.parse(raw.slice(a, b + 1)); } catch (_) {}
+  if (!j || !Array.isArray(j.edits)) { err.textContent = "Unreadable answer: paste the whole JSON block Claude returned."; return; }
+  const cv = fix(v.cv), seen = new Set();
+  const edits = j.edits.filter(e => e && typeof e.path === "string" && typeof e.after === "string" && typeof getP(cv, e.path) === "string" && !seen.has(e.path) && seen.add(e.path))
+    .filter(e => !sameText(e.after, getP(cv, e.path)))
+    .slice(0, 40).map(e => ({ path: e.path, before: String(e.before || getP(cv, e.path)), after: e.after.trim(), type: RTYPE_LABEL[e.type] ? e.type : "style", why: String(e.why || ""), src: "claude", state: null }));
+  const notes = (Array.isArray(j.notes) ? j.notes : []).filter(n => n && n.note).slice(0, 15).map(n => ({ path: typeof n.path === "string" && getP(cv, n.path) != null ? n.path : null, note: String(n.note) }));
+  const r = v.review || {};
+  const claudePaths = new Set(edits.map(x => x.path)); // Claude's edit on the same field replaces a pending quick fix
+  v.review = { items: [...(r.items || []).filter(x => x.src !== "claude" && !(x.src === "quick" && !x.state && claudePaths.has(x.path))), ...edits], notes: { ...(r.notes || {}), claude: notes }, at: Date.now() };
+  S.rclaude = false; err.textContent = "";
+  touch(); renderReview();
+  toast(`${pl(edits.length, "edit")} and ${pl(notes.length, "note")} imported`);
+}
+function runQuickReview() {
+  const v = cur(), q = quickReview(fix(v.cv)), r = v.review || {};
+  const claudePaths = new Set((r.items || []).filter(x => x.src === "claude" && !x.state).map(x => x.path));
+  const items = q.items.filter(x => !claudePaths.has(x.path)); // Claude's edit on the same field wins
+  v.review = { items: [...(r.items || []).filter(x => x.src !== "quick"), ...items], notes: { ...(r.notes || {}), quick: q.notes }, at: Date.now() };
+  touch(); renderReview();
+  toast(items.length || q.notes.length ? `${pl(items.length, "fix").replace("fixs", "fixes")} and ${pl(q.notes.length, "note")} found` : "No issues found by the quick check");
+}
+function reviewOpen(v) { return ((v && v.review && v.review.items) || []).filter(x => !x.state).length; }
+function renderReview() {
+  const v = cur(); if (!v) return;
+  const cv = fix(v.cv), r = v.review || { items: [], notes: {} }, items = r.items || [];
+  const allNotes = [...((r.notes || {}).claude || []), ...((r.notes || {}).quick || [])];
+  const open = items.filter(x => !x.state), count = k => open.filter(x => x.type === k).length;
+  const shown = items.map((x, i) => [x, i]).filter(([x]) => S.rfilter === "all" || x.type === S.rfilter);
+  const safe = open.filter(x => x.type !== "style" && sameText(getP(cv, x.path), x.before)).length;
+  $("#pane-review").innerHTML = `<div class="cols ats">
+    <div class="pane">
+      <div class="panel"><h2>Proofread <small>${textFields(cv).length} fields</small></h2>
+        <p class="hint">Checks the version open in Edit: spelling, grammar and wording. Hidden roles and sections are skipped.</p>
+        <div class="row"><button class="btn" data-act="rquick">Quick check</button><button class="btn acc" data-act="rclaude">Proofread with Claude</button></div>
+        <p class="hint">Quick check runs offline: British spelling, typos, spacing, punctuation consistency and weak opening verbs. Claude also checks grammar, tense and wording.</p>
+      </div>
+      <div class="panel" ${S.rclaude ? "" : "hidden"}><h2>Proofread with Claude</h2>
+        <ol class="steps">
+          <li><b>Copy the prompt</b><span class="hint">It holds your CV fields and the rules: British English, no invented facts, same length or shorter.</span><div class="row"><button class="btn pri" data-act="rprompt">Copy prompt</button></div></li>
+          <li><b>Paste it into a new Claude chat</b><span class="hint"><a href="https://claude.ai/new" target="_blank" rel="noopener noreferrer">claude.ai/new</a></span></li>
+          <li><b>Paste Claude's answer here</b><textarea id="ranswer" rows="5" placeholder='The answer starts with { "edits": …'></textarea><div class="row"><button class="btn pri" data-act="rimport">Import answer</button><span class="hint" id="rerr"></span></div></li>
+        </ol></div>
+      <div class="panel"><h2>Notes <small>${allNotes.length}</small></h2>
+        ${allNotes.length ? `<ul class="checks">${allNotes.map(n => `<li><span class="wa-t">!</span><div>${n.path ? `<b>${esc(fieldName(cv, n.path))}</b> · ` : ""}<span>${esc(n.note)}</span></div></li>`).join("")}</ul>` : `<p class="hint">Points that need your judgement rather than a fix appear here.</p>`}
+      </div>
+    </div>
+    <div class="pane"><div class="panel">
+      <h2>Suggested fixes <small>${open.length} to review</small></h2>
+      ${items.length ? `<div class="filters">${[["all", "All", open.length], ...RTYPES.map(([k, l]) => [k, l, count(k)])].map(([k, l, n]) => `<button class="fchip ${S.rfilter === k ? "on" : ""}" data-rfilter="${k}">${l}<span>${n}</span></button>`).join("")}</div>
+        ${safe ? `<div class="row"><button class="btn sm" data-act="rapplyall">Apply all spelling and grammar fixes (${safe})</button></div>` : ""}` : ""}
+      ${shown.length ? shown.map(([x, i]) => {
+        const now = getP(cv, x.path), gone = typeof now !== "string", stale = !x.state && !gone && !sameText(now, x.before);
+        return `<div class="sug ${x.state === "applied" ? "done" : x.state === "skipped" ? "skip" : ""}" data-ri="${i}">
+          <div class="row"><span class="where">${esc(fieldName(cv, x.path))}</span><span style="flex:1"></span><span class="src">${RTYPE_LABEL[x.type]}${x.src === "quick" ? " · quick" : ""}</span></div>
+          <p class="diff">${wordDiff(x.before, x.after)}</p>
+          ${x.why ? `<p class="why">${esc(x.why)}</p>` : ""}
+          ${x.state ? `<div class="row"><span class="hint">${x.state === "applied" ? "Applied" : "Skipped"}</span><button class="btn sm" data-act="rundo">Undo</button></div>` :
+            gone ? `<p class="hint">This field no longer exists in the CV.</p><div class="row"><button class="btn sm" data-act="rskip">Skip</button></div>` :
+            `<label>Text to apply (editable)<textarea rows="2" data-redit="${i}" data-grow="1">${esc(x.after)}</textarea></label>
+            ${stale ? `<p class="hint" style="color:var(--warn)">This field changed since the check: applying replaces your current text.</p>` : ""}
+            <div class="row"><button class="btn pri sm" data-act="rapply">Apply</button><button class="btn sm" data-act="rskip">Skip</button></div>`}
+        </div>`; }).join("") : `<p class="hint">${items.length ? "Nothing in this category." : "Run a quick check or proofread with Claude. Nothing changes in your CV until you apply a fix, and each applied fix can be undone."}</p>`}
+    </div></div></div>`;
+  autosizeAll($("#pane-review"));
+}
+function applyReview(i, silent) {
+  const v = cur(), x = v.review.items[i]; if (!x) return false;
+  const ta = !silent && document.querySelector(`[data-redit="${i}"]`), text = (ta ? ta.value : x.after).trim();
+  if (!text) { toast("The text to apply is empty."); return false; }
+  v.cv = fix(v.cv); x.prev = getP(v.cv, x.path); setP(v.cv, x.path, text);
+  x.after = text; x.state = "applied";
+  if (!silent) { touch(); renderReview(); toast("Fix applied"); }
+  return true;
+}
+function undoReview(i) {
+  const v = cur(), x = v.review.items[i]; if (!x) return;
+  v.cv = fix(v.cv);
+  if (x.state === "applied" && typeof x.prev === "string") {
+    if (sameText(getP(v.cv, x.path), x.after)) setP(v.cv, x.path, x.prev);
+    else toast("The field was edited since: your text is kept.");
+  }
+  x.state = null; delete x.prev; touch(); renderReview();
 }
 
 /* ---------- PDF ---------- */
@@ -640,6 +825,7 @@ $("#logout").addEventListener("click", async () => { await SB.auth.signOut(); St
 
 $("#main").addEventListener("input", e => {
   const el = e.target, v = cur(); if (!v) return;
+  if (el.dataset.grow) { autosize(el); return; }
   if (el.dataset.k) {
     v.cv = fix(v.cv); let val;
     if (el.type === "checkbox") val = el.dataset.inv ? !el.checked : el.checked;
@@ -692,6 +878,7 @@ $("#main").addEventListener("submit", e => {
 $("#main").addEventListener("click", async e => {
   const chip = e.target.closest("[data-copy]"); if (chip) { copy(chip.dataset.copy, `"${chip.dataset.copy}" copied`); return; }
   const fb = e.target.closest("[data-filter]"); if (fb) { S.filter = fb.dataset.filter; renderApps(); return; }
+  const rf = e.target.closest("[data-rfilter]"); if (rf) { S.rfilter = rf.dataset.rfilter; renderReview(); return; }
   const b = e.target.closest("[data-act]"); if (!b) return;
   const act = b.dataset.act, v = cur();
   if (act === "signup") return signUp();
@@ -721,6 +908,21 @@ $("#main").addEventListener("click", async e => {
     return;
   }
   if (act === "brm") { const p = b.dataset.p, j = +b.dataset.j; arm(b, () => bulletOp(p, arr => arr.splice(j, 1))); return; }
+  if (act === "rquick") return runQuickReview();
+  if (act === "rclaude") { S.rclaude = true; renderReview(); return; }
+  if (act === "rprompt") return copy(buildReviewPrompt(v), "Prompt copied: paste it into Claude");
+  if (act === "rimport") return importReview();
+  if (act === "rapplyall") {
+    const cv = fix(v.cv); let n = 0;
+    v.review.items.forEach((x, i) => { if (!x.state && x.type !== "style" && sameText(getP(cv, x.path), x.before) && applyReview(i, true)) n++; });
+    touch(); renderReview(); toast(`${pl(n, "fix").replace("fixs", "fixes")} applied`); return;
+  }
+  const ri = b.closest("[data-ri]")?.dataset.ri;
+  if (ri != null && v && v.review) {
+    if (act === "rapply") return applyReview(+ri);
+    if (act === "rskip") { v.review.items[+ri].state = "skipped"; touch(); renderReview(); return; }
+    if (act === "rundo") return undoReview(+ri);
+  }
   if (act === "quick") return quickAnalyse();
   if (act === "claude") { if ((v.jobAd || "").trim().length < 80) { toast("Paste the full text of the ad first."); return; } S.claude = true; $("#claudebox").hidden = false; $("#claudebox").scrollIntoView({ block: "nearest" }); return; }
   if (act === "prompt") return copy(buildPrompt(v), "Prompt copied: paste it into Claude");

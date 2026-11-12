@@ -37,6 +37,7 @@ Mise en place : environ 30 minutes, une seule fois.
 
 - **Éditer** : ouvre un modèle, **+ Nouvelle candidature** (entreprise, poste), puis adapte titre, résumé et puces. Une puce par ligne ; décoche un poste pour le masquer dans cette version.
 - **ATS** : colle l'offre complète. *Analyse rapide* donne une première estimation hors ligne. *Analyse avec Claude* : copie le prompt, colle-le dans une nouvelle conversation sur claude.ai, recolle la réponse. Tu obtiens les mots-clés réels de l'offre (avec synonymes FR/DE/EN), des reformulations à appliquer ou ignorer une par une, et les exigences que ton parcours ne couvre pas.
+- **Review** : *Quick check* (hors ligne) corrige l'orthographe britannique, les mots répétés, les espaces et la ponctuation des puces, et signale les verbes faibles ou les puces trop longues. *Proofread with Claude* : copie le prompt, colle-le dans Claude, recolle la réponse ; chaque correction s'applique, s'ignore ou s'annule une par une.
 - **Aperçu & PDF** : rendu exact du PDF, et le texte tel qu'un parser ATS le lit, avec contrôles (nom, e-mail, téléphone, intitulés, score recalculé sur le texte extrait).
 - **Candidatures** : statut, date d'envoi, lien de l'offre, notes, score ATS de chaque version.
 

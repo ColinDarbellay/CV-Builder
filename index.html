@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-version="202611112124">
+<html lang="en" data-version="202611121623">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -93,6 +93,7 @@ details.sec>summary small{font:400 12px var(--f-mono);color:var(--muted);margin-
 .bi{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:6px;align-items:start}
 .bi>span{color:var(--accent);font-weight:700;padding-top:7px;text-align:center}
 .bi textarea{resize:none;overflow:hidden;min-height:38px;line-height:1.4}
+textarea[data-grow]{resize:none;overflow:hidden;min-height:38px;line-height:1.4}
 .bctl{display:flex;gap:4px;margin-top:4px}
 .bctl .btn{color:var(--muted);min-width:32px;padding:3px 0}
 @media (max-width:620px){.bctl{flex-direction:column}}
@@ -189,6 +190,7 @@ pre.txt{white-space:pre-wrap;word-break:break-word;background:var(--sunk);border
     <button role="tab" data-tab="pdf" aria-selected="true">PDF <b id="tabPages">–</b></button>
     <button role="tab" data-tab="edit" aria-selected="false">Edit</button>
     <button role="tab" data-tab="ats" aria-selected="false">ATS <b id="tabScore">–</b></button>
+    <button role="tab" data-tab="review" aria-selected="false">Review <b id="tabReview">–</b></button>
     <button role="tab" data-tab="apps" aria-selected="false">Jobs <b id="tabApps">0</b></button>
   </nav>
   <div id="status" class="status" hidden style="max-width:1180px;margin:12px auto 0"></div>
@@ -197,6 +199,7 @@ pre.txt{white-space:pre-wrap;word-break:break-word;background:var(--sunk);border
     <section id="first" class="center" hidden></section>
     <section class="pane" id="pane-edit" hidden></section>
     <section class="pane" id="pane-ats" hidden></section>
+    <section class="pane" id="pane-review" hidden></section>
     <section class="pane" id="pane-pdf" hidden></section>
     <section class="pane" id="pane-apps" hidden></section>
   </main>
@@ -210,9 +213,9 @@ pre.txt{white-space:pre-wrap;word-break:break-word;background:var(--sunk);border
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
-<script src="config.js?v=202611112124"></script>
-<script src="fonts.js?v=202611112124"></script>
-<script src="cv-engine.js?v=202611112124"></script>
-<script src="app.js?v=202611112124"></script>
+<script src="config.js?v=202611121623"></script>
+<script src="fonts.js?v=202611121623"></script>
+<script src="cv-engine.js?v=202611121623"></script>
+<script src="app.js?v=202611121623"></script>
 </body>
 </html>
