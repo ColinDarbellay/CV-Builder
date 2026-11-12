@@ -82,7 +82,7 @@ const STATUSES = [["draft", "Draft"], ["sent", "Applied"], ["interview", "Interv
 const STATUS_LABEL = Object.fromEntries(STATUSES);
 const ACCENTS = [["#1a8cff", "Blue (template)"], ["#1f8a8a", "Teal"], ["#b0452a", "Brick"], ["#3a3f47", "Graphite"]];
 const S = {
-  tab: "pdf", rfilter: "all", rclaude: false, zoom: 1, pdfDoc: null, curId: null, filter: "all", openSecs: new Set(["meta", "header"]), newForm: false, more: new Set(),
+  tab: "pdf", photoImg: null, rfilter: "all", rclaude: false, zoom: 1, pdfDoc: null, curId: null, filter: "all", openSecs: new Set(["meta", "header"]), newForm: false, more: new Set(),
   claude: false, pdf: null, pdfText: "", pdfBusy: false, pdfDirty: true, pages: 0
 };
 try { const t = localStorage.getItem("cvb-tab"); if (["edit", "ats", "review", "pdf", "apps"].includes(t)) S.tab = t; const z = +localStorage.getItem("cvb-zoom"); if (ZOOM_OK(z)) S.zoom = z; } catch (_) {}
@@ -271,8 +271,13 @@ function renderEdit() {
     sec("languages", "Languages", cv.languages.length, lng + add("languages", "Add language")),
     sec("patents", "Patents", cv.show.patents ? cv.patents.length : "hidden", cb("show.patents", "Show section") + pat + add("patents", "Add patent")),
     sec("interests", "Interests", cv.show.interests ? "" : "hidden", cb("show.interests", "Show section") + ta("interests", "Interests", 3)),
-    sec("style", "Layout and photo", "", `<div class="photo">${photo() ? `<img src="${photo()}" alt="CV photo">` : `<img alt="">`}
-        <div class="row"><button class="btn" data-act="photo">Change photo</button></div></div>
+    sec("style", "Layout and photo", "", `<div class="photo">${photo() ? `<img src="${photo()}" alt="CV photo" id="photoPrev">` : `<img alt="">`}
+        <div class="pctl"><button class="btn" data-act="photo">Change photo</button>
+        ${(Store.get("profile", "photo") || {}).src ? `<div class="frame" role="group" aria-label="Photo framing">
+          <button class="btn sm" data-act="pf" data-v="out" aria-label="Zoom out">−</button><button class="btn sm" data-act="pf" data-v="in" aria-label="Zoom in">+</button>
+          <button class="btn sm" data-act="pf" data-v="left" aria-label="Move left">←</button><button class="btn sm" data-act="pf" data-v="right" aria-label="Move right">→</button>
+          <button class="btn sm" data-act="pf" data-v="up" aria-label="Move up">↑</button><button class="btn sm" data-act="pf" data-v="down" aria-label="Move down">↓</button>
+          <button class="btn sm" data-act="pf" data-v="auto">Auto</button></div>` : photo() ? `<span class="hint">Upload the photo again to adjust its framing.</span>` : ""}</div></div>
       ${cb("show.photo", "Show the photo in this version")}
       <p class="hint">ATS ignore the photo. It is customary in Switzerland and Germany; hide it for UK or US applications. The photo is shared by all versions.</p>
       <label>Roles on page 1<select id="f-page1Roles" data-k="page1Roles" data-num="1">${[[0, "Auto (no forced break)"], [1, "1"], [2, "2"], [3, "3"], [4, "4"], [5, "5"]].map(([n, l]) => `<option value="${n}" ${+cv.page1Roles === n ? "selected" : ""}>${l}</option>`).join("")}</select></label>
@@ -792,35 +797,71 @@ async function removeVersion(id) {
 }
 
 /* ---------- photo ---------- */
+/* Photo: the original is kept (max 1600 px) with a framing; the round 900 px version used by the PDF is rendered from it. */
+const loadImg = url => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+function autoFrame(im) {
+  const W = im.width, H = im.height, sw = 200, sh = Math.max(1, Math.round(200 * H / W));
+  const c = document.createElement("canvas"); c.width = sw; c.height = sh; const g = c.getContext("2d"); g.drawImage(im, 0, 0, sw, sh);
+  const d = g.getImageData(0, 0, sw, sh).data, at = (x, y) => { const i = (y * sw + x) * 4; return [d[i], d[i + 1], d[i + 2]]; };
+  const diff = (p, q) => Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) + Math.abs(p[2] - q[2]);
+  const a = at(2, 2), b = at(sw - 3, 2), bg = [(a[0] + b[0]) >> 1, (a[1] + b[1]) >> 1, (a[2] + b[2]) >> 1];
+  const side = H > W ? Math.min(H, Math.round(W * 1.15)) : H;
+  let cx = W / 2, top = null;
+  if (diff(a, b) < 40) { // plain backdrop: find the silhouette
+    const fg = (x, y) => diff(at(x, y), bg) > 60;
+    for (let y = 0; y < sh && top === null; y++) { let n = 0; for (let x = 0; x < sw; x++) if (fg(x, y)) n++; if (n > 2) top = y; }
+    if (top !== null) {
+      let sx = 0, n = 0;
+      for (let y = top; y < Math.min(sh, top + Math.round(0.12 * sh)); y++) for (let x = 0; x < sw; x++) if (fg(x, y)) { sx += x; n++; }
+      if (n) cx = sx / n * W / sw; top = top * H / sh;
+    }
+  }
+  const sy = top !== null ? top - 0.07 * side : (H > W ? (H - side) * 0.1 : 0); // hair just below the edge of the circle
+  return { cx, cy: sy + side / 2, side, bg: `rgb(${bg.join(",")})`, z: 1, dx: 0, dy: 0 };
+}
+function renderPhoto(im, f) {
+  const side = f.side / f.z, cx = f.cx - f.dx * side, cy = f.cy - f.dy * side;
+  const N = Math.max(200, Math.min(900, Math.round(side))), k = N / side; // never upscale
+  const c = document.createElement("canvas"); c.width = c.height = N; const g = c.getContext("2d");
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
+  g.fillStyle = "#24405c"; g.fillRect(0, 0, N, N);
+  g.save(); g.beginPath(); g.arc(N / 2, N / 2, N / 2 - 1, 0, Math.PI * 2); g.clip();
+  g.fillStyle = f.bg || "#fff"; g.fillRect(0, 0, N, N);
+  g.drawImage(im, (side / 2 - cx) * k, (side / 2 - cy) * k, im.width * k, im.height * k); g.restore();
+  return { data: c.toDataURL("image/jpeg", 0.92), N };
+}
+async function savePhoto(doc, msg) {
+  try { await put("profile", "photo", doc); S.pdfDirty = true; refreshLive(); if (msg) toast(msg); }
+  catch (e) { toast(e.message || "Couldn't save the photo."); }
+}
 function setPhoto(file) {
   const fr = new FileReader();
-  fr.onload = () => {
-    const im = new Image();
-    im.onload = async () => {
-      /* Head-and-shoulders framing: portrait photos use a square up to 15% wider than the photo,
-         anchored near the top; the sides are padded with the backdrop colour. Landscape photos: centred square. */
-      const W = im.width, Hh = im.height, side = Hh > W ? Math.min(Hh, Math.round(W * 1.15)) : Hh;
-      const sx = (W - side) / 2, sy = Hh > W ? (Hh - side) * 0.1 : 0;
-      const N = Math.max(200, Math.min(900, side)); // keep up to 900 px, never upscale
-      const probe = document.createElement("canvas"); probe.width = W; probe.height = 8;
-      const pg = probe.getContext("2d"); pg.drawImage(im, 0, 0);
-      const px = (x, y) => pg.getImageData(x, y, 1, 1).data;
-      const a = px(4, 4), b = px(W - 5, 4), backdrop = `rgb(${(a[0] + b[0]) >> 1},${(a[1] + b[1]) >> 1},${(a[2] + b[2]) >> 1})`;
-      const c = document.createElement("canvas"); c.width = c.height = N; const g = c.getContext("2d");
-      g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
-      g.fillStyle = "#24405c"; g.fillRect(0, 0, N, N);
-      g.save(); g.beginPath(); g.arc(N / 2, N / 2, N / 2 - 1, 0, Math.PI * 2); g.clip();
-      const k = N / side;
-      g.fillStyle = backdrop; g.fillRect(0, 0, N, N);
-      g.drawImage(im, 0, 0, W, Hh, -sx * k, -sy * k, W * k, Hh * k); g.restore();
-      try { await put("profile", "photo", { data: c.toDataURL("image/jpeg", 0.92), updatedAt: Date.now() }); S.pdfDirty = true; renderPane(); refreshLive();
-        toast(`Photo updated: ${N} px, about ${Math.round(N / (31 / 25.4))} dpi in the PDF${N < 366 ? ". A larger photo would print sharper" : ""}`); }
-      catch (e) { toast(e.message || "Couldn't save the photo."); }
-    };
-    im.onerror = () => toast("Unreadable image. Try a JPEG or PNG.");
-    im.src = fr.result;
+  fr.onload = async () => {
+    let im; try { im = await loadImg(fr.result); } catch (_) { toast("Unreadable image. Try a JPEG or PNG."); return; }
+    const sc = Math.min(1, 1600 / Math.max(im.width, im.height)), c = document.createElement("canvas");
+    c.width = Math.round(im.width * sc); c.height = Math.round(im.height * sc);
+    const g = c.getContext("2d"); g.imageSmoothingQuality = "high"; g.drawImage(im, 0, 0, c.width, c.height);
+    const src = c.toDataURL("image/jpeg", 0.9), sim = await loadImg(src), frame = autoFrame(sim), out = renderPhoto(sim, frame);
+    S.photoImg = sim;
+    await savePhoto({ data: out.data, src, frame, updatedAt: Date.now() }, `Photo updated: ${out.N} px, about ${Math.round(out.N / (31 / 25.4))} dpi in the PDF${out.N < 366 ? ". A larger photo would print sharper" : ""}`);
+    renderPane();
   };
   fr.readAsDataURL(file);
+}
+let frameT = null;
+async function nudgePhoto(act) {
+  const doc = Store.get("profile", "photo"); if (!doc || !doc.src || !doc.frame) return;
+  const f = { ...doc.frame };
+  if (act === "auto") Object.assign(f, { z: 1, dx: 0, dy: 0 });
+  else if (act === "in") f.z = Math.min(2, f.z * 1.08); else if (act === "out") f.z = Math.max(0.7, f.z / 1.08);
+  else if (act === "up") f.dy -= 0.025; else if (act === "down") f.dy += 0.025;
+  else if (act === "left") f.dx -= 0.025; else if (act === "right") f.dx += 0.025;
+  if (!S.photoImg || S.photoImg.src !== doc.src) S.photoImg = await loadImg(doc.src);
+  const out = renderPhoto(S.photoImg, f), nd = { ...doc, data: out.data, frame: f, updatedAt: Date.now() };
+  Store.docs.set(Store.key("profile", "photo"), nd); Store.save();
+  const pv = $("#photoPrev"); if (pv) pv.src = out.data;
+  S.pdfDirty = true; refreshLive();
+  clearTimeout(frameT); frameT = setTimeout(() => savePhoto(Store.get("profile", "photo")), 600);
 }
 
 /* ---------- events ---------- */
@@ -901,6 +942,7 @@ $("#main").addEventListener("click", async e => {
   if (act === "seed") { $("#seedIn").click(); return; }
   if (act === "blank") { const id = mkid(), now = Date.now(); try { await put("versions", id, { label: "Blank CV", company: "", role: "", isTemplate: true, status: "draft", createdAt: now, updatedAt: now, cv: clone(BLANK), jobAd: "", offerUrl: "", keywords: null, suggestions: [], uncovered: [], notes: "" }); S.curId = id; render(); } catch (err) { toast(err.message || "Couldn't create it."); } return; }
   if (act === "photo") { $("#photoIn").click(); return; }
+  if (act === "pf") { nudgePhoto(b.dataset.v); return; }
   if (act === "newform") { S.newForm = true; renderEdit(); setTimeout(() => $("#nv-company")?.focus(), 0); return; }
   if (act === "newcancel") { S.newForm = false; renderEdit(); return; }
   if (["add", "up", "down", "rm"].includes(act) && v) {

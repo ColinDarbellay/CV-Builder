@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-version="202611122133">
+<html lang="en" data-version="202611122143">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -177,8 +177,11 @@ pre.txt{white-space:pre-wrap;word-break:break-word;background:var(--sunk);border
 .status{font-size:13.5px;color:var(--warn);background:var(--warnbg);border-radius:8px;padding:8px 12px}
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:9px 15px;border-radius:8px;font-size:14px;z-index:20;max-width:calc(100% - 32px)}
 .update{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:30;background:var(--panel);border:1px solid var(--accent);border-radius:999px;padding:6px 6px 6px 14px;display:flex;gap:10px;align-items:center;box-shadow:var(--shadow);font-size:14px;max-width:calc(100% - 32px)}
-.photo{display:flex;gap:12px;align-items:center}
-.photo img{width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--sunk)}
+.photo{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.photo img{width:104px;height:104px;border-radius:50%;object-fit:cover;background:var(--sunk);flex:none}
+.pctl{display:flex;flex-direction:column;gap:8px;min-width:0}
+.frame{display:flex;flex-wrap:wrap;gap:4px}
+.frame .btn{min-width:34px;font-family:var(--f-mono)}
 @media (max-width:620px){#whoMail{display:none}.save{display:none}.vpick{order:3;flex-basis:100%}nav.tabs{gap:3px}nav.tabs button{padding:7px 7px;gap:4px;font-size:13.5px}nav.tabs button b{padding:1px 4px;font-size:10.5px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -219,9 +222,9 @@ pre.txt{white-space:pre-wrap;word-break:break-word;background:var(--sunk);border
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
-<script src="config.js?v=202611122133"></script>
-<script src="fonts.js?v=202611122133"></script>
-<script src="cv-engine.js?v=202611122133"></script>
-<script src="app.js?v=202611122133"></script>
+<script src="config.js?v=202611122143"></script>
+<script src="fonts.js?v=202611122143"></script>
+<script src="cv-engine.js?v=202611122143"></script>
+<script src="app.js?v=202611122143"></script>
 </body>
 </html>
